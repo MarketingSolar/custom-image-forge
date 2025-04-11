@@ -82,7 +82,7 @@ const ClientConfig = () => {
     
     updateClient(client.id, {
       frame: framePreview,
-      footer: null // Always set footer to null as it's removed
+      footer: null
     });
     
     toast({
@@ -109,7 +109,7 @@ const ClientConfig = () => {
       fontFamily: "Arial",
       fontSize: 14,
       fontStyle: [],
-      color: "#000000" // Default color
+      color: "#000000"
     });
   };
 
@@ -167,11 +167,35 @@ const ClientConfig = () => {
     const point = client.textPoints.find(p => p.id === pointId);
     if (!point) return;
     
-    const newStyles = checked
-      ? [...point.fontStyle, style]
-      : point.fontStyle.filter(s => s !== style);
+    let newStyles = [...point.fontStyle];
+    
+    if (checked) {
+      // Only add if not already present
+      if (!newStyles.includes(style)) {
+        newStyles.push(style);
+      }
+    } else {
+      // Remove style
+      newStyles = newStyles.filter(s => s !== style);
+    }
     
     updateTextPoint(client.id, pointId, { fontStyle: newStyles });
+  };
+  
+  // Fixed version of style handling for new points
+  const handleNewPointStyleChange = (style: string, checked: boolean) => {
+    if (!newPoint) return;
+    
+    const currentStyles = newPoint.fontStyle || [];
+    let updatedStyles = [...currentStyles];
+    
+    if (checked && !updatedStyles.includes(style)) {
+      updatedStyles.push(style);
+    } else if (!checked && updatedStyles.includes(style)) {
+      updatedStyles = updatedStyles.filter(s => s !== style);
+    }
+    
+    setNewPoint({ ...newPoint, fontStyle: updatedStyles });
   };
 
   useEffect(() => {
@@ -205,7 +229,7 @@ const ClientConfig = () => {
         </div>
         <Button 
           onClick={handleSaveChanges}
-          className="bg-gradient-to-r from-brand-DEFAULT to-brand-secondary text-white"
+          className="bg-gradient-to-r from-primary to-secondary text-white"
         >
           <Save className="mr-2 h-5 w-5" /> Salvar Alterações
         </Button>
@@ -213,8 +237,8 @@ const ClientConfig = () => {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="border-gray-200 bg-white rounded-lg shadow-sm">
         <TabsList className="grid w-full grid-cols-2 bg-gray-100 rounded-t-lg p-1">
-          <TabsTrigger value="frames" className="text-gray-700 data-[state=active]:bg-white data-[state=active]:text-brand-DEFAULT data-[state=active]:shadow-sm">Moldura</TabsTrigger>
-          <TabsTrigger value="textPoints" className="text-gray-700 data-[state=active]:bg-white data-[state=active]:text-brand-DEFAULT data-[state=active]:shadow-sm">Campos de Texto</TabsTrigger>
+          <TabsTrigger value="frames" className="text-gray-700 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm">Moldura</TabsTrigger>
+          <TabsTrigger value="textPoints" className="text-gray-700 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm">Campos de Texto</TabsTrigger>
         </TabsList>
         
         <TabsContent value="frames" className="space-y-4 pt-4 p-6">
@@ -266,12 +290,16 @@ const ClientConfig = () => {
                     onClick={handleCanvasClick}
                     onMouseUp={handlePointMouseUp}
                   >
-                    {framePreview && (
+                    {framePreview ? (
                       <img 
                         src={framePreview} 
                         alt="Moldura" 
                         className="absolute inset-0 w-full h-full object-contain pointer-events-none z-0" 
                       />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+                        <p>Faça upload de uma moldura primeiro</p>
+                      </div>
                     )}
                     
                     {client.textPoints.map((point, index) => (
@@ -415,7 +443,7 @@ const ClientConfig = () => {
                                 onCheckedChange={(checked) => 
                                   handleStyleChange(point.id, option.value, !!checked)
                                 }
-                                className="data-[state=checked]:bg-brand-DEFAULT data-[state=checked]:border-brand-DEFAULT"
+                                className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                               />
                               <Label 
                                 htmlFor={`${option.value}-${point.id}`}
@@ -523,14 +551,8 @@ const ClientConfig = () => {
                               <Checkbox 
                                 id={`new-${option.value}`} 
                                 checked={newPoint.fontStyle?.includes(option.value) || false}
-                                onCheckedChange={(checked) => {
-                                  const currentStyles = newPoint.fontStyle || [];
-                                  const newStyles = checked
-                                    ? [...currentStyles, option.value]
-                                    : currentStyles.filter(s => s !== option.value);
-                                  setNewPoint({ ...newPoint, fontStyle: newStyles });
-                                }}
-                                className="data-[state=checked]:bg-brand-DEFAULT data-[state=checked]:border-brand-DEFAULT"
+                                onCheckedChange={(checked) => handleNewPointStyleChange(option.value, !!checked)}
+                                className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                               />
                               <Label 
                                 htmlFor={`new-${option.value}`}
@@ -566,7 +588,7 @@ const ClientConfig = () => {
                     </div>
                   )}
                   
-                  {!newPoint && (
+                  {!newPoint && framePreview && (
                     <Button
                       variant="outline"
                       className="w-full border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-700"

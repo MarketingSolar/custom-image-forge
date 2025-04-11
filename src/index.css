@@ -98,7 +98,7 @@
   .canvas-container {
     @apply relative overflow-hidden bg-gray-100 rounded-md touch-none;
     width: 100%;
-    max-width: 600px;
+    max-width: 500px;
     height: auto;
     aspect-ratio: 1 / 1;
   }
@@ -138,7 +138,7 @@
   }
   
   .tool-button {
-    @apply w-10 h-10 rounded-lg flex items-center justify-center bg-white border border-gray-200 shadow-sm hover:bg-gray-50 transition-all;
+    @apply w-10 h-10 rounded-lg flex items-center justify-center bg-white border border-gray-200 shadow-sm hover:bg-gray-50 transition-all cursor-pointer;
   }
 
   /* Admin dashboard styling */

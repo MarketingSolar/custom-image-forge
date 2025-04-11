@@ -22,6 +22,7 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
     const [lastY, setLastY] = useState(0);
     const [lastDist, setLastDist] = useState(0);
     const [isFrameLoaded, setIsFrameLoaded] = useState(false);
+    const [isRendering, setIsRendering] = useState(false);
     
     // Initialize canvas
     useEffect(() => {
@@ -56,7 +57,9 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
     
     // Drawing function
     const drawCanvas = useCallback(() => {
-      if (!ctx || !canvas) return;
+      if (!ctx || !canvas || isRendering) return;
+      
+      setIsRendering(true);
       
       // Clear canvas with a solid background instead of transparent
       ctx.fillStyle = "#f3f4f6"; // Light gray background
@@ -82,7 +85,7 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
         // No background image, just draw frame and text
         drawFrameAndText();
       }
-    }, [canvas, ctx, backgroundImage, frameImage, footerImage, scale, offsetX, offsetY, textPoints, textValues]);
+    }, [canvas, ctx, backgroundImage, frameImage, footerImage, scale, offsetX, offsetY, textPoints, textValues, isRendering]);
     
     // Draw frame, footer, and text
     const drawFrameAndText = useCallback(() => {
@@ -110,11 +113,13 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
               
               // Draw text points
               drawTextPoints();
+              setIsRendering(false);
             };
             footerImg.src = footerImage;
           } else {
             // No footer, just draw text points
             drawTextPoints();
+            setIsRendering(false);
           }
         };
         frameImg.src = frameImage;
@@ -133,11 +138,13 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
           
           // Draw text points
           drawTextPoints();
+          setIsRendering(false);
         };
         footerImg.src = footerImage;
       } else {
         // No frame or footer, just draw text points
         drawTextPoints();
+        setIsRendering(false);
       }
     }, [canvas, ctx, frameImage, footerImage, textPoints, textValues]);
     
@@ -217,7 +224,10 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
       setLastX(x);
       setLastY(y);
       
-      drawCanvas();
+      // Debounce the redraw to prevent flickering
+      if (!isRendering) {
+        drawCanvas();
+      }
     };
     
     const handleMouseUp = () => {
@@ -252,7 +262,10 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
       setOffsetX(newOffsetX);
       setOffsetY(newOffsetY);
       
-      drawCanvas();
+      // Debounce the redraw
+      if (!isRendering) {
+        drawCanvas();
+      }
     };
     
     // Touch event handlers
@@ -302,7 +315,10 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
         setLastX(x);
         setLastY(y);
         
-        drawCanvas();
+        // Debounce the redraw
+        if (!isRendering) {
+          drawCanvas();
+        }
       } else if (e.touches.length === 2) {
         // Pinch zoom
         const touch1 = e.touches[0];
@@ -340,7 +356,10 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
           setLastX(centerX);
           setLastY(centerY);
           
-          drawCanvas();
+          // Debounce the redraw
+          if (!isRendering) {
+            drawCanvas();
+          }
         }
       }
     };

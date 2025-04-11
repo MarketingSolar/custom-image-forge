@@ -225,7 +225,7 @@ const ClientPreview = () => {
               </div>
             </CardContent>
             <CardFooter>
-              <Button className="w-full bg-gradient-to-r from-brand-DEFAULT to-brand-secondary text-white">
+              <Button className="w-full bg-gradient-to-r from-primary to-secondary text-white">
                 Acessar
               </Button>
             </CardFooter>
@@ -236,14 +236,14 @@ const ClientPreview = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-r from-gray-100 to-gray-200 py-8 px-4">
-      <div className="container mx-auto max-w-5xl">
+    <div className="min-h-screen bg-gradient-to-r from-gray-100 to-gray-200 py-6 px-4">
+      <div className="container mx-auto max-w-6xl">
         <Card className="animate-zoom-fade-in overflow-hidden shadow-lg border-0">
           <CardHeader className="client-header border-0">
             <div>
               <CardTitle className="client-title text-2xl">Gerador de Imagens</CardTitle>
               <CardDescription className="client-subtitle">
-                Crie sua imagem personalizada para {client.companyName || client.name}
+                Crie imagens personalizadas para seus projetos concluídos
               </CardDescription>
             </div>
             <div className="client-logo-container">
@@ -260,43 +260,74 @@ const ClientPreview = () => {
           </CardHeader>
           
           <CardContent className="p-6">
-            <div className="flex flex-col lg:flex-row gap-6">
-              <div className="w-full lg:w-2/3 space-y-4">
-                <div className="flex gap-2 mb-4">
-                  <button
-                    onClick={triggerFileInput}
-                    className="tool-button"
-                    title="Selecionar imagem da galeria"
-                  >
-                    <Image className="h-5 w-5 text-gray-700" />
-                  </button>
-                  <button
-                    onClick={handleCameraCapture}
-                    className="tool-button"
-                    title="Capturar imagem da câmera"
-                  >
-                    <Camera className="h-5 w-5 text-gray-700" />
-                  </button>
-                  {uploadedImage && (
-                    <button
-                      onClick={() => setUploadedImage(null)}
-                      className="tool-button"
-                      title="Nova imagem"
-                    >
-                      <RefreshCw className="h-5 w-5 text-gray-700" />
-                    </button>
+            <div className="flex flex-col md:flex-row gap-8">
+              <div className="w-full md:w-1/2 space-y-8">
+                <div>
+                  <h3 className="text-lg font-medium text-gray-800 mb-3">Imagem de Fundo</h3>
+                  
+                  <div className="flex flex-wrap gap-3 mb-4">
+                    <div className="tool-button" onClick={triggerFileInput}>
+                      <Image className="h-5 w-5 text-gray-700" />
+                    </div>
+                    
+                    <div className="tool-button" onClick={handleCameraCapture}>
+                      <Camera className="h-5 w-5 text-gray-700" />
+                    </div>
+                    
+                    {uploadedImage && (
+                      <div className="tool-button" onClick={() => setUploadedImage(null)}>
+                        <RefreshCw className="h-5 w-5 text-gray-700" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Informações do projeto */}
+                <div>
+                  <h3 className="text-lg font-medium text-gray-800 mb-3">Informações do Projeto</h3>
+                  
+                  {client.textPoints.length === 0 ? (
+                    <p className="text-sm text-gray-500">
+                      Não há campos de informação configurados para este cliente.
+                    </p>
+                  ) : (
+                    <div className="space-y-4">
+                      {client.textPoints.map((point, index) => (
+                        <div key={point.id} className="space-y-2">
+                          <Label htmlFor={`text-${point.id}`} className="text-gray-700">
+                            {point.name} {index + 1}
+                          </Label>
+                          <Input
+                            id={`text-${point.id}`}
+                            value={textValues[point.id] || ""}
+                            onChange={(e) => handleTextChange(point.id, e.target.value)}
+                            placeholder={`Digite ${point.name.toLowerCase()}`}
+                            className="border-gray-300 focus:border-primary focus:ring-primary"
+                          />
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
                 
-                <div className="aspect-square relative bg-gray-100 border-0 rounded-lg overflow-hidden shadow-inner" style={{ maxWidth: "90%" }}>
-                  <ImageCanvas
-                    ref={canvasRef}
-                    backgroundImage={uploadedImage}
-                    frameImage={client.frame}
-                    footerImage={null} // Remove footer image as requested
-                    textPoints={client.textPoints}
-                    textValues={textValues}
-                  />
+                {/* Botões de ação */}
+                <div className="flex flex-col space-y-2">
+                  <Button
+                    onClick={handleDownload}
+                    className="w-full bg-primary text-white flex items-center justify-center py-6"
+                    disabled={!client.frame && !uploadedImage}
+                  >
+                    <Download className="mr-2 h-5 w-5" /> Baixar Imagem
+                  </Button>
+                  
+                  <Button
+                    onClick={() => setUploadedImage(null)}
+                    variant="outline"
+                    className="w-full border-gray-300 text-gray-700 flex items-center justify-center"
+                    disabled={!uploadedImage}
+                  >
+                    <RefreshCw className="mr-2 h-5 w-5" /> Nova Imagem
+                  </Button>
                 </div>
                 
                 <input
@@ -313,46 +344,21 @@ const ClientPreview = () => {
                 />
               </div>
               
-              <div className="w-full lg:w-1/3">
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium text-gray-800">Informações do Projeto</h3>
-                  
-                  {client.textPoints.length === 0 ? (
-                    <p className="text-sm text-gray-500">
-                      Não há campos de informação configurados para este cliente.
-                    </p>
-                  ) : (
-                    <div className="space-y-3">
-                      {client.textPoints.map((point) => (
-                        <div key={point.id} className="space-y-1">
-                          <Label htmlFor={`text-${point.id}`} className="text-gray-700">
-                            {point.name}
-                          </Label>
-                          <Input
-                            id={`text-${point.id}`}
-                            value={textValues[point.id] || ""}
-                            onChange={(e) => handleTextChange(point.id, e.target.value)}
-                            placeholder={`Digite ${point.name.toLowerCase()}`}
-                            className="border-gray-300 focus:border-brand-DEFAULT focus:ring-brand-DEFAULT"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
+              <div className="w-full md:w-1/2">
+                <h3 className="text-lg font-medium text-gray-800 mb-3">Visualização</h3>
+                <div className="aspect-square relative bg-gray-100 border-0 rounded-lg overflow-hidden shadow-inner mx-auto" style={{ maxWidth: "500px" }}>
+                  <ImageCanvas
+                    ref={canvasRef}
+                    backgroundImage={uploadedImage}
+                    frameImage={client.frame}
+                    footerImage={null}
+                    textPoints={client.textPoints}
+                    textValues={textValues}
+                  />
                 </div>
               </div>
             </div>
           </CardContent>
-          
-          <CardFooter className="bg-gray-50 border-t p-4">
-            <Button
-              onClick={handleDownload}
-              className="w-full bg-gradient-to-r from-brand-DEFAULT to-brand-secondary text-white"
-              disabled={!client.frame && !uploadedImage}
-            >
-              <Download className="mr-2 h-5 w-5" /> Baixar Imagem
-            </Button>
-          </CardFooter>
         </Card>
       </div>
     </div>
