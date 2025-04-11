@@ -181,110 +181,96 @@ const ClientPreview = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-r from-brand-DEFAULT to-brand-secondary py-10 px-4">
+    <div className="min-h-screen bg-gradient-to-r from-gray-100 to-gray-200 py-10 px-4">
       <div className="container mx-auto max-w-5xl">
-        <Card className="animate-zoom-fade-in overflow-hidden">
-          <CardHeader className="bg-white border-b">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-2xl">Gerador de Imagens</CardTitle>
-                <CardDescription>
-                  Crie sua imagem personalizada para {client.name}
-                </CardDescription>
-              </div>
-              {client.logo && (
-                <div className="h-12 w-auto">
-                  <img 
-                    src={client.logo} 
-                    alt={`${client.name} Logo`} 
-                    className="h-full w-auto object-contain" 
-                  />
-                </div>
+        <Card className="animate-zoom-fade-in overflow-hidden shadow-lg border-0">
+          <CardHeader className="client-header">
+            <div>
+              <CardTitle className="client-title text-2xl">Gerador de Imagens</CardTitle>
+              <CardDescription className="client-subtitle">
+                Crie sua imagem personalizada para {client.name}
+              </CardDescription>
+            </div>
+            <div className="client-logo-container">
+              {client.logo ? (
+                <img 
+                  src={client.logo} 
+                  alt={`${client.name} Logo`} 
+                  className="client-logo" 
+                />
+              ) : (
+                <div className="client-logo-text">{client.name}</div>
               )}
             </div>
           </CardHeader>
           
           <CardContent className="p-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <div className="space-y-4">
-                  <div className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden shadow-inner">
-                    <ImageCanvas
-                      ref={canvasRef}
-                      backgroundImage={uploadedImage}
-                      frameImage={client.frame}
-                      footerImage={client.footer}
-                      textPoints={client.textPoints}
-                      textValues={textValues}
-                    />
-                    
-                    {!uploadedImage && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100 z-10">
-                        <div className="w-24 h-24 mb-4 text-gray-400">
-                          <Image className="w-full h-full" />
-                        </div>
-                        <p className="text-gray-500 text-center max-w-xs">
-                          Faça upload de uma imagem ou use sua câmera para começar
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const files = e.target.files;
-                      if (files && files.length > 0) {
-                        handleFileUpload(files[0]);
-                      }
-                    }}
-                  />
-                  
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      onClick={triggerFileInput}
-                      className="flex-1"
+            <div className="flex flex-col lg:flex-row gap-6">
+              <div className="w-full lg:w-2/3 space-y-4">
+                <div className="flex gap-2 mb-4">
+                  <button
+                    onClick={triggerFileInput}
+                    className="tool-button"
+                    title="Selecionar imagem da galeria"
+                  >
+                    <Image className="h-5 w-5 text-gray-700" />
+                  </button>
+                  <button
+                    onClick={handleCameraCapture}
+                    className="tool-button"
+                    title="Capturar imagem da câmera"
+                  >
+                    <Camera className="h-5 w-5 text-gray-700" />
+                  </button>
+                  {uploadedImage && (
+                    <button
+                      onClick={() => setUploadedImage(null)}
+                      className="tool-button"
+                      title="Nova imagem"
                     >
-                      <Image className="mr-2 h-4 w-4" /> Galeria
-                    </Button>
-                    <Button
-                      onClick={handleCameraCapture}
-                      className="flex-1"
-                    >
-                      <Camera className="mr-2 h-4 w-4" /> Câmera
-                    </Button>
-                    {uploadedImage && (
-                      <Button
-                        variant="outline"
-                        onClick={() => setUploadedImage(null)}
-                        className="flex-1"
-                      >
-                        <RefreshCw className="mr-2 h-4 w-4" /> Nova Imagem
-                      </Button>
-                    )}
-                  </div>
+                      <RefreshCw className="h-5 w-5 text-gray-700" />
+                    </button>
+                  )}
                 </div>
+                
+                <div className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden shadow-inner" style={{ maxWidth: "95%" }}>
+                  <ImageCanvas
+                    ref={canvasRef}
+                    backgroundImage={uploadedImage}
+                    frameImage={client.frame}
+                    footerImage={client.footer}
+                    textPoints={client.textPoints}
+                    textValues={textValues}
+                  />
+                </div>
+                
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const files = e.target.files;
+                    if (files && files.length > 0) {
+                      handleFileUpload(files[0]);
+                    }
+                  }}
+                />
               </div>
               
-              <div>
+              <div className="w-full lg:w-1/3">
                 <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Campos de Texto</h3>
+                  <h3 className="text-lg font-medium text-gray-800">Informações do Projeto</h3>
                   
                   {client.textPoints.length === 0 ? (
                     <p className="text-sm text-gray-500">
-                      Não há campos de texto configurados para este cliente.
+                      Não há campos de informação configurados para este cliente.
                     </p>
                   ) : (
                     <div className="space-y-3">
                       {client.textPoints.map((point, index) => (
                         <div key={point.id} className="space-y-1">
-                          <Label htmlFor={`text-${point.id}`} className="flex items-center">
-                            <span className="bg-blue-500 text-white rounded-full w-5 h-5 inline-flex items-center justify-center text-xs mr-2">
-                              {index + 1}
-                            </span>
+                          <Label htmlFor={`text-${point.id}`} className="text-gray-700">
                             {point.name}
                           </Label>
                           <Input
@@ -292,6 +278,7 @@ const ClientPreview = () => {
                             value={textValues[point.id] || ""}
                             onChange={(e) => handleTextChange(point.id, e.target.value)}
                             placeholder={`Digite ${point.name.toLowerCase()}`}
+                            className="border-gray-300 focus:border-brand-DEFAULT focus:ring-brand-DEFAULT"
                           />
                         </div>
                       ))}
@@ -305,8 +292,8 @@ const ClientPreview = () => {
           <CardFooter className="bg-gray-50 border-t p-4">
             <Button
               onClick={handleDownload}
-              className="w-full bg-gradient-to-r from-brand-DEFAULT to-brand-secondary"
-              disabled={!uploadedImage}
+              className="w-full bg-gradient-to-r from-brand-DEFAULT to-brand-secondary text-white"
+              disabled={!client.frame && !uploadedImage}
             >
               <Download className="mr-2 h-5 w-5" /> Baixar Imagem
             </Button>

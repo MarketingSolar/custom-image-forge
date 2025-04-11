@@ -9,6 +9,7 @@ export type TextPoint = {
   fontFamily: string;
   fontSize: number;
   fontStyle: string[];
+  color?: string; // Add color property for text
 };
 
 export type Client = {

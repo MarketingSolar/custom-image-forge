@@ -60,101 +60,72 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
           ctx.drawImage(img, offsetX, offsetY, scaledWidth, scaledHeight);
           ctx.restore();
           
-          // Draw frame image
-          if (frameImage) {
-            const frameImg = new Image();
-            frameImg.onload = () => {
-              ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
-              
-              // Draw footer image
-              if (footerImage) {
-                const footerImg = new Image();
-                footerImg.onload = () => {
-                  // Draw footer at the bottom
-                  const footerHeight = (footerImg.height / footerImg.width) * canvas.width;
-                  ctx.drawImage(
-                    footerImg, 
-                    0, 
-                    canvas.height - footerHeight,
-                    canvas.width,
-                    footerHeight
-                  );
-                  
-                  // Draw text points
-                  drawTextPoints();
-                };
-                footerImg.src = footerImage;
-              } else {
-                // No footer, just draw text points
-                drawTextPoints();
-              }
-            };
-            frameImg.src = frameImage;
-          } else {
-            // No frame, draw footer
-            if (footerImage) {
-              const footerImg = new Image();
-              footerImg.onload = () => {
-                // Draw footer at the bottom
-                const footerHeight = (footerImg.height / footerImg.width) * canvas.width;
-                ctx.drawImage(
-                  footerImg, 
-                  0, 
-                  canvas.height - footerHeight,
-                  canvas.width,
-                  footerHeight
-                );
-                
-                // Draw text points
-                drawTextPoints();
-              };
-              footerImg.src = footerImage;
-            } else {
-              // No frame or footer, just draw text points
-              drawTextPoints();
-            }
-          }
+          // Draw frame and other elements
+          drawFrameAndText();
         };
         img.src = backgroundImage;
       } else {
-        // No background image, draw only frame and footer
-        if (frameImage) {
-          const frameImg = new Image();
-          frameImg.onload = () => {
-            ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
-            
-            if (footerImage) {
-              const footerImg = new Image();
-              footerImg.onload = () => {
-                const footerHeight = (footerImg.height / footerImg.width) * canvas.width;
-                ctx.drawImage(
-                  footerImg, 
-                  0, 
-                  canvas.height - footerHeight,
-                  canvas.width,
-                  footerHeight
-                );
-              };
-              footerImg.src = footerImage;
-            }
-          };
-          frameImg.src = frameImage;
-        } else if (footerImage) {
-          const footerImg = new Image();
-          footerImg.onload = () => {
-            const footerHeight = (footerImg.height / footerImg.width) * canvas.width;
-            ctx.drawImage(
-              footerImg, 
-              0, 
-              canvas.height - footerHeight,
-              canvas.width,
-              footerHeight
-            );
-          };
-          footerImg.src = footerImage;
-        }
+        // No background image, just draw frame and text
+        drawFrameAndText();
       }
     }, [canvas, ctx, backgroundImage, frameImage, footerImage, scale, offsetX, offsetY, textPoints, textValues]);
+    
+    // Draw frame, footer, and text
+    const drawFrameAndText = useCallback(() => {
+      if (!ctx || !canvas) return;
+      
+      // Draw frame image
+      if (frameImage) {
+        const frameImg = new Image();
+        frameImg.onload = () => {
+          ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
+          
+          // Draw footer after frame
+          if (footerImage) {
+            const footerImg = new Image();
+            footerImg.onload = () => {
+              // Draw footer at the bottom
+              const footerHeight = (footerImg.height / footerImg.width) * canvas.width;
+              ctx.drawImage(
+                footerImg, 
+                0, 
+                canvas.height - footerHeight,
+                canvas.width,
+                footerHeight
+              );
+              
+              // Draw text points
+              drawTextPoints();
+            };
+            footerImg.src = footerImage;
+          } else {
+            // No footer, just draw text points
+            drawTextPoints();
+          }
+        };
+        frameImg.src = frameImage;
+      } else if (footerImage) {
+        // No frame, but draw footer
+        const footerImg = new Image();
+        footerImg.onload = () => {
+          const footerHeight = (footerImg.height / footerImg.width) * canvas.width;
+          ctx.drawImage(
+            footerImg, 
+            0, 
+            canvas.height - footerHeight,
+            canvas.width,
+            footerHeight
+          );
+          
+          // Draw text points
+          drawTextPoints();
+        };
+        footerImg.src = footerImage;
+      } else {
+        // No frame or footer, just draw text points
+        drawTextPoints();
+      }
+    }, [canvas, ctx, frameImage, footerImage, textPoints, textValues]);
     
     // Draw text points
     const drawTextPoints = useCallback(() => {
@@ -171,7 +142,10 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
         }${
           point.fontStyle.includes('bold') ? 'bold ' : ''
         }${point.fontSize}px ${point.fontFamily}`;
-        ctx.fillStyle = "#000000";
+        
+        // Use point.color if available, otherwise default to black
+        ctx.fillStyle = point.color || "#000000";
+        
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         
@@ -190,7 +164,7 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
           ctx.beginPath();
           ctx.moveTo(x - textWidth / 2, lineY);
           ctx.lineTo(x + textWidth / 2, lineY);
-          ctx.strokeStyle = "#000000";
+          ctx.strokeStyle = point.color || "#000000";
           ctx.lineWidth = point.fontSize / 20;
           ctx.stroke();
         }
@@ -237,7 +211,9 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
     };
     
     const handleWheel = (e: React.WheelEvent) => {
-      e.preventDefault();
+      e.preventDefault(); // Prevent page scrolling
+      e.stopPropagation(); // Stop event propagation
+      
       if (!backgroundImage) return;
       
       const rect = (e.target as HTMLElement).getBoundingClientRect();

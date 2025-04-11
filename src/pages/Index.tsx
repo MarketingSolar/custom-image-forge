@@ -8,15 +8,15 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-r from-brand-DEFAULT to-brand-secondary flex flex-col items-center justify-center p-4">
-      <div className="max-w-3xl w-full text-center text-white">
+      <div className="max-w-3xl w-full text-center">
         <div className="mb-8 flex justify-center">
           <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-lg">
             <Image className="w-12 h-12 text-brand-DEFAULT" />
           </div>
         </div>
         
-        <h1 className="text-5xl font-bold mb-4">Gerador de Imagens Personalizadas</h1>
-        <p className="text-xl mb-8 opacity-90">
+        <h1 className="text-5xl font-bold mb-4 text-white">Gerador de Imagens Personalizadas</h1>
+        <p className="text-xl mb-8 text-white opacity-90">
           Crie imagens personalizadas com molduras e textos para seus clientes.
         </p>
         
@@ -30,7 +30,7 @@ const Index = () => {
         </div>
       </div>
       
-      <div className="mt-16 text-white text-sm opacity-70">
+      <div className="mt-16 text-white text-sm opacity-80">
         <p>Entre com admin / admin123 para acessar o painel administrativo</p>
       </div>
     </div>

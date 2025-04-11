@@ -48,27 +48,28 @@ const AdminLogin = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-brand-DEFAULT to-brand-secondary p-4">
-      <Card className="w-full max-w-md animate-zoom-fade-in">
+      <Card className="w-full max-w-md animate-zoom-fade-in bg-white shadow-xl">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl text-center">Painel Administrativo</CardTitle>
-          <CardDescription className="text-center">
+          <CardTitle className="text-2xl text-center text-gray-800">Painel Administrativo</CardTitle>
+          <CardDescription className="text-center text-gray-600">
             Entre com suas credenciais para acessar o painel
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Usuário</Label>
+              <Label htmlFor="username" className="text-gray-700">Usuário</Label>
               <Input
                 id="username"
                 placeholder="Seu nome de usuário"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
+                className="border-gray-300"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
+              <Label htmlFor="password" className="text-gray-700">Senha</Label>
               <Input
                 id="password"
                 type="password"
@@ -76,11 +77,12 @@ const AdminLogin = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className="border-gray-300"
               />
             </div>
             <Button 
               type="submit" 
-              className="w-full bg-gradient-to-r from-brand-DEFAULT to-brand-secondary"
+              className="w-full bg-gradient-to-r from-brand-DEFAULT to-brand-secondary text-white"
               disabled={isLoading}
             >
               {isLoading ? "Entrando..." : "Entrar"}
@@ -88,7 +90,7 @@ const AdminLogin = () => {
           </form>
         </CardContent>
         <CardFooter className="flex justify-center">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-gray-500">
             Use admin / admin123 para testar
           </p>
         </CardFooter>
