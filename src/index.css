@@ -155,7 +155,7 @@
   }
   
   .admin-menu-item.active {
-    @apply bg-brand-DEFAULT text-white;
+    @apply bg-primary text-white;
   }
 
   /* Animation classes */

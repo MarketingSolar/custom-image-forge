@@ -47,7 +47,7 @@ const AdminLogin = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-brand-DEFAULT to-brand-secondary p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-primary to-secondary p-4">
       <Card className="w-full max-w-md animate-zoom-fade-in bg-white shadow-xl">
         <CardHeader className="space-y-1 bg-gray-50">
           <CardTitle className="text-2xl text-center text-gray-800">Painel Administrativo</CardTitle>
@@ -82,7 +82,7 @@ const AdminLogin = () => {
             </div>
             <Button 
               type="submit" 
-              className="w-full bg-gradient-to-r from-brand-DEFAULT to-brand-secondary text-white"
+              className="w-full bg-gradient-to-r from-primary to-secondary text-white"
               disabled={isLoading}
             >
               {isLoading ? "Entrando..." : "Entrar"}
