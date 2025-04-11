@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { Camera, Download, Image, Upload, RefreshCw } from "lucide-react";
+import { Camera, Download, Image, Upload, RefreshCw, AlignCenter } from "lucide-react";
 import ImageCanvas from "@/components/client/ImageCanvas";
 import NotFound from "./NotFound";
 
@@ -27,6 +27,7 @@ const ClientPreview = () => {
   const [clientPassword, setClientPassword] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imageCanvasRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Load client data
@@ -191,6 +192,16 @@ const ClientPreview = () => {
       });
     }
   };
+  
+  const handleCenterImage = () => {
+    if (imageCanvasRef.current && imageCanvasRef.current.centerImage) {
+      imageCanvasRef.current.centerImage();
+      toast({
+        title: "Imagem centralizada",
+        description: "A imagem foi centralizada na moldura."
+      });
+    }
+  };
 
   const triggerFileInput = () => {
     fileInputRef.current?.click();
@@ -202,8 +213,8 @@ const ClientPreview = () => {
 
   if (client.password && !isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-r from-gray-100 to-gray-200 py-10 px-4 flex items-center justify-center">
-        <Card className="w-full max-w-md animate-zoom-fade-in">
+      <div className="min-h-screen bg-[#F9FAFB] py-10 px-4 flex items-center justify-center">
+        <Card className="w-full max-w-md animate-zoom-fade-in shadow-md border-0">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl text-gray-800">Área Restrita</CardTitle>
             <CardDescription>
@@ -225,7 +236,7 @@ const ClientPreview = () => {
               </div>
             </CardContent>
             <CardFooter>
-              <Button className="w-full bg-gradient-to-r from-primary to-secondary text-white">
+              <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
                 Acessar
               </Button>
             </CardFooter>
@@ -236,34 +247,34 @@ const ClientPreview = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-r from-gray-100 to-gray-200 py-6 px-4">
+    <div className="min-h-screen bg-[#F9FAFB] py-6 px-4">
       <div className="container mx-auto max-w-6xl">
-        <Card className="animate-zoom-fade-in overflow-hidden shadow-lg border-0">
-          <CardHeader className="client-header border-0">
-            <div>
-              <CardTitle className="client-title text-2xl">Gerador de Imagens</CardTitle>
-              <CardDescription className="client-subtitle">
-                Crie imagens personalizadas para seus projetos concluídos
-              </CardDescription>
-            </div>
-            <div className="client-logo-container">
+        <Card className="animate-zoom-fade-in shadow-sm border-0">
+          <div className="bg-white pt-4 px-6 pb-0">
+            <div className="flex items-center mb-2">
               {client.logo ? (
                 <img 
                   src={client.logo} 
                   alt={`${client.companyName || client.name} Logo`} 
-                  className="client-logo" 
+                  className="h-8 mr-4" 
                 />
               ) : (
-                <div className="client-logo-text">{client.companyName || client.name}</div>
+                <div className="text-xl font-medium text-gray-800 mr-4">{client.companyName || client.name}</div>
               )}
             </div>
-          </CardHeader>
+            <div className="client-header pb-4">
+              <h1 className="client-title">Gerador de Imagens</h1>
+              <p className="client-subtitle">
+                Crie imagens personalizadas para seus projetos concluídos
+              </p>
+            </div>
+          </div>
           
-          <CardContent className="p-6">
+          <CardContent className="client-content p-6">
             <div className="flex flex-col md:flex-row gap-8">
               <div className="w-full md:w-1/2 space-y-8">
                 <div>
-                  <h3 className="text-lg font-medium text-gray-800 mb-3">Imagem de Fundo</h3>
+                  <h3 className="client-section-title">Imagem de Fundo</h3>
                   
                   <div className="flex flex-wrap gap-3 mb-4">
                     <div className="tool-button" onClick={triggerFileInput}>
@@ -272,6 +283,10 @@ const ClientPreview = () => {
                     
                     <div className="tool-button" onClick={handleCameraCapture}>
                       <Camera className="h-5 w-5 text-gray-700" />
+                    </div>
+                    
+                    <div className="tool-button" onClick={handleCenterImage}>
+                      <AlignCenter className="h-5 w-5 text-gray-700" />
                     </div>
                     
                     {uploadedImage && (
@@ -284,7 +299,7 @@ const ClientPreview = () => {
 
                 {/* Informações do projeto */}
                 <div>
-                  <h3 className="text-lg font-medium text-gray-800 mb-3">Informações do Projeto</h3>
+                  <h3 className="client-section-title">Informações do Projeto</h3>
                   
                   {client.textPoints.length === 0 ? (
                     <p className="text-sm text-gray-500">
@@ -302,7 +317,7 @@ const ClientPreview = () => {
                             value={textValues[point.id] || ""}
                             onChange={(e) => handleTextChange(point.id, e.target.value)}
                             placeholder={`Digite ${point.name.toLowerCase()}`}
-                            className="border-gray-300 focus:border-primary focus:ring-primary"
+                            className="client-input"
                           />
                         </div>
                       ))}
@@ -314,7 +329,7 @@ const ClientPreview = () => {
                 <div className="flex flex-col space-y-2">
                   <Button
                     onClick={handleDownload}
-                    className="w-full bg-primary text-white flex items-center justify-center py-6"
+                    className="client-button-primary"
                     disabled={!client.frame && !uploadedImage}
                   >
                     <Download className="mr-2 h-5 w-5" /> Baixar Imagem
@@ -323,7 +338,7 @@ const ClientPreview = () => {
                   <Button
                     onClick={() => setUploadedImage(null)}
                     variant="outline"
-                    className="w-full border-gray-300 text-gray-700 flex items-center justify-center"
+                    className="client-button-secondary"
                     disabled={!uploadedImage}
                   >
                     <RefreshCw className="mr-2 h-5 w-5" /> Nova Imagem
@@ -345,10 +360,13 @@ const ClientPreview = () => {
               </div>
               
               <div className="w-full md:w-1/2">
-                <h3 className="text-lg font-medium text-gray-800 mb-3">Visualização</h3>
-                <div className="aspect-square relative bg-gray-100 border-0 rounded-lg overflow-hidden shadow-inner mx-auto" style={{ maxWidth: "500px" }}>
+                <h3 className="client-section-title">Visualização</h3>
+                <div className="preview-container aspect-square relative bg-white mx-auto" style={{ maxWidth: "500px" }}>
                   <ImageCanvas
-                    ref={canvasRef}
+                    ref={(el) => {
+                      canvasRef.current = el;
+                      imageCanvasRef.current = el;
+                    }}
                     backgroundImage={uploadedImage}
                     frameImage={client.frame}
                     footerImage={null}

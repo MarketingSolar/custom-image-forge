@@ -161,6 +161,28 @@ const ClientConfig = () => {
     setDraggedPoint(null);
   };
 
+  const handlePositionChange = (pointId: string, axis: 'x' | 'y', value: string) => {
+    if (!client) return;
+    
+    // Convert string to number and ensure it's within 0-100 range
+    let numValue = parseFloat(value);
+    if (isNaN(numValue)) numValue = 0;
+    numValue = Math.min(Math.max(numValue, 0), 100);
+    
+    updateTextPoint(client.id, pointId, { [axis]: numValue });
+  };
+  
+  const handleNewPointPositionChange = (axis: 'x' | 'y', value: string) => {
+    if (!newPoint) return;
+    
+    // Convert string to number and ensure it's within 0-100 range
+    let numValue = parseFloat(value);
+    if (isNaN(numValue)) numValue = 0;
+    numValue = Math.min(Math.max(numValue, 0), 100);
+    
+    setNewPoint({ ...newPoint, [axis]: numValue });
+  };
+
   const handleStyleChange = (pointId: string, style: string, checked: boolean) => {
     if (!client) return;
     
@@ -229,7 +251,7 @@ const ClientConfig = () => {
         </div>
         <Button 
           onClick={handleSaveChanges}
-          className="bg-gradient-to-r from-primary to-secondary text-white"
+          className="bg-primary text-white"
         >
           <Save className="mr-2 h-5 w-5" /> Salvar Alterações
         </Button>
@@ -362,6 +384,36 @@ const ClientConfig = () => {
                       </div>
                       
                       <div className="space-y-2 text-sm">
+                        {/* Position X and Y input fields */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label htmlFor={`x-${point.id}`} className="text-xs text-gray-700">Posição X (%)</Label>
+                            <Input
+                              id={`x-${point.id}`}
+                              value={point.x.toFixed(2)}
+                              onChange={(e) => handlePositionChange(point.id, 'x', e.target.value)}
+                              className="h-8 border-gray-300"
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.1"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor={`y-${point.id}`} className="text-xs text-gray-700">Posição Y (%)</Label>
+                            <Input
+                              id={`y-${point.id}`}
+                              value={point.y.toFixed(2)}
+                              onChange={(e) => handlePositionChange(point.id, 'y', e.target.value)}
+                              className="h-8 border-gray-300"
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.1"
+                            />
+                          </div>
+                        </div>
+                        
                         <div className="grid grid-cols-2 gap-2">
                           <div>
                             <Label htmlFor={`font-${point.id}`} className="text-xs text-gray-700">Fonte</Label>
@@ -471,6 +523,36 @@ const ClientConfig = () => {
                             placeholder="Ex: Nome do Projeto"
                             className="h-8 border-gray-300"
                           />
+                        </div>
+                        
+                        {/* Position X and Y input fields for new point */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label htmlFor="point-x" className="text-xs text-gray-700">Posição X (%)</Label>
+                            <Input
+                              id="point-x"
+                              value={newPoint.x?.toFixed(2) || '0'}
+                              onChange={(e) => handleNewPointPositionChange('x', e.target.value)}
+                              className="h-8 border-gray-300"
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.1"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="point-y" className="text-xs text-gray-700">Posição Y (%)</Label>
+                            <Input
+                              id="point-y"
+                              value={newPoint.y?.toFixed(2) || '0'}
+                              onChange={(e) => handleNewPointPositionChange('y', e.target.value)}
+                              className="h-8 border-gray-300"
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.1"
+                            />
+                          </div>
                         </div>
                         
                         <div className="grid grid-cols-2 gap-2">

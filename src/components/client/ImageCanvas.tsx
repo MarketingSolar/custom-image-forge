@@ -21,8 +21,9 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
     const [lastX, setLastX] = useState(0);
     const [lastY, setLastY] = useState(0);
     const [lastDist, setLastDist] = useState(0);
-    const [isFrameLoaded, setIsFrameLoaded] = useState(false);
+    const [imageLoaded, setImageLoaded] = useState(false);
     const [isRendering, setIsRendering] = useState(false);
+    const [backgroundImageObj, setBackgroundImageObj] = useState<HTMLImageElement | null>(null);
     
     // Initialize canvas
     useEffect(() => {
@@ -43,19 +44,66 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
     // Expose canvas to parent component for download
     useImperativeHandle(ref, () => canvas as HTMLCanvasElement);
     
-    // Pre-load frame image
+    // Pre-load background image to prevent flickering
     useEffect(() => {
-      if (frameImage && ctx && canvas) {
+      if (backgroundImage && !backgroundImageObj) {
         const img = new Image();
         img.onload = () => {
-          setIsFrameLoaded(true);
-          drawCanvas();
+          setBackgroundImageObj(img);
+          setImageLoaded(true);
         };
-        img.src = frameImage;
+        img.src = backgroundImage;
+      } else if (!backgroundImage) {
+        setBackgroundImageObj(null);
+        setImageLoaded(false);
       }
-    }, [frameImage, ctx, canvas]);
+    }, [backgroundImage]);
     
-    // Drawing function
+    // Reset position when a new image is loaded
+    useEffect(() => {
+      if (backgroundImageObj) {
+        // Center the image when it's loaded
+        centerImage(backgroundImageObj);
+      }
+    }, [backgroundImageObj]);
+    
+    // Center the image function
+    const centerImage = useCallback((img?: HTMLImageElement) => {
+      if (!canvas || !ctx) return;
+      
+      const imgToUse = img || backgroundImageObj;
+      if (!imgToUse) return;
+      
+      // Calculate size to fit the image in the canvas
+      const canvasAspect = canvas.width / canvas.height;
+      const imgAspect = imgToUse.width / imgToUse.height;
+      
+      let newScale = 1;
+      let newOffsetX = 0;
+      let newOffsetY = 0;
+      
+      if (imgAspect > canvasAspect) {
+        // Image is wider than canvas
+        newScale = canvas.width / imgToUse.width * 0.9;
+      } else {
+        // Image is taller than canvas
+        newScale = canvas.height / imgToUse.height * 0.9;
+      }
+      
+      // Center the image
+      newOffsetX = (canvas.width - imgToUse.width * newScale) / 2;
+      newOffsetY = (canvas.height - imgToUse.height * newScale) / 2;
+      
+      setScale(newScale);
+      setOffsetX(newOffsetX);
+      setOffsetY(newOffsetY);
+      
+      // Redraw with new parameters
+      setIsRendering(false);
+      drawCanvas();
+    }, [canvas, ctx, backgroundImageObj]);
+    
+    // Drawing function with optimizations to prevent flickering
     const drawCanvas = useCallback(() => {
       if (!ctx || !canvas || isRendering) return;
       
@@ -65,88 +113,92 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
       ctx.fillStyle = "#f3f4f6"; // Light gray background
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
+      const drawRemainingLayers = () => {
+        // Draw frame image
+        if (frameImage) {
+          const frameImg = new Image();
+          frameImg.onload = () => {
+            ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
+            
+            // Draw footer after frame if needed
+            if (footerImage) {
+              const footerImg = new Image();
+              footerImg.onload = () => {
+                // Draw footer at the bottom
+                const footerHeight = (footerImg.height / footerImg.width) * canvas.width;
+                ctx.drawImage(
+                  footerImg, 
+                  0, 
+                  canvas.height - footerHeight,
+                  canvas.width,
+                  footerHeight
+                );
+                
+                // Draw text points
+                drawTextPoints();
+                setIsRendering(false);
+              };
+              footerImg.src = footerImage;
+            } else {
+              // No footer, just draw text points
+              drawTextPoints();
+              setIsRendering(false);
+            }
+          };
+          frameImg.src = frameImage;
+        } else if (footerImage) {
+          // No frame, but draw footer
+          const footerImg = new Image();
+          footerImg.onload = () => {
+            const footerHeight = (footerImg.height / footerImg.width) * canvas.width;
+            ctx.drawImage(
+              footerImg, 
+              0, 
+              canvas.height - footerHeight,
+              canvas.width,
+              footerHeight
+            );
+            
+            // Draw text points
+            drawTextPoints();
+            setIsRendering(false);
+          };
+          footerImg.src = footerImage;
+        } else {
+          // No frame or footer, just draw text points
+          drawTextPoints();
+          setIsRendering(false);
+        }
+      };
+      
       // Draw background image if available
-      if (backgroundImage) {
+      if (backgroundImageObj && imageLoaded) {
+        // Use the cached background image to prevent flickering
+        ctx.save();
+        ctx.drawImage(
+          backgroundImageObj, 
+          offsetX, 
+          offsetY, 
+          backgroundImageObj.width * scale, 
+          backgroundImageObj.height * scale
+        );
+        ctx.restore();
+        drawRemainingLayers();
+      } else if (backgroundImage) {
         const img = new Image();
         img.onload = () => {
-          // Calculate scaled dimensions and position
-          const scaledWidth = img.width * scale;
-          const scaledHeight = img.height * scale;
-          
+          setBackgroundImageObj(img);
           ctx.save();
-          ctx.drawImage(img, offsetX, offsetY, scaledWidth, scaledHeight);
+          ctx.drawImage(img, offsetX, offsetY, img.width * scale, img.height * scale);
           ctx.restore();
-          
-          // Draw frame and other elements
-          drawFrameAndText();
+          drawRemainingLayers();
         };
         img.src = backgroundImage;
       } else {
-        // No background image, just draw frame and text
-        drawFrameAndText();
+        // No background image
+        drawRemainingLayers();
       }
-    }, [canvas, ctx, backgroundImage, frameImage, footerImage, scale, offsetX, offsetY, textPoints, textValues, isRendering]);
-    
-    // Draw frame, footer, and text
-    const drawFrameAndText = useCallback(() => {
-      if (!ctx || !canvas) return;
-      
-      // Draw frame image
-      if (frameImage) {
-        const frameImg = new Image();
-        frameImg.onload = () => {
-          ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
-          
-          // Draw footer after frame if needed
-          if (footerImage) {
-            const footerImg = new Image();
-            footerImg.onload = () => {
-              // Draw footer at the bottom
-              const footerHeight = (footerImg.height / footerImg.width) * canvas.width;
-              ctx.drawImage(
-                footerImg, 
-                0, 
-                canvas.height - footerHeight,
-                canvas.width,
-                footerHeight
-              );
-              
-              // Draw text points
-              drawTextPoints();
-              setIsRendering(false);
-            };
-            footerImg.src = footerImage;
-          } else {
-            // No footer, just draw text points
-            drawTextPoints();
-            setIsRendering(false);
-          }
-        };
-        frameImg.src = frameImage;
-      } else if (footerImage) {
-        // No frame, but draw footer
-        const footerImg = new Image();
-        footerImg.onload = () => {
-          const footerHeight = (footerImg.height / footerImg.width) * canvas.width;
-          ctx.drawImage(
-            footerImg, 
-            0, 
-            canvas.height - footerHeight,
-            canvas.width,
-            footerHeight
-          );
-          
-          // Draw text points
-          drawTextPoints();
-          setIsRendering(false);
-        };
-        footerImg.src = footerImage;
-      } else {
-        // No frame or footer, just draw text points
-        drawTextPoints();
-        setIsRendering(false);
-      }
-    }, [canvas, ctx, frameImage, footerImage, textPoints, textValues]);
+    }, [canvas, ctx, backgroundImage, frameImage, footerImage, scale, offsetX, offsetY, textPoints, textValues, isRendering, backgroundImageObj, imageLoaded]);
     
     // Draw text points
     const drawTextPoints = useCallback(() => {
@@ -196,10 +248,12 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
     
     // Redraw when dependencies change
     useEffect(() => {
-      drawCanvas();
-    }, [drawCanvas]);
+      if (!isRendering) {
+        drawCanvas();
+      }
+    }, [drawCanvas, isRendering]);
     
-    // Mouse and touch event handlers
+    // Mouse and touch event handlers with modifications to prevent page scrolling
     const handleMouseDown = (e: React.MouseEvent) => {
       setIsDragging(true);
       const rect = (e.target as HTMLElement).getBoundingClientRect();
@@ -224,10 +278,8 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
       setLastX(x);
       setLastY(y);
       
-      // Debounce the redraw to prevent flickering
-      if (!isRendering) {
-        drawCanvas();
-      }
+      // Redraw with new position
+      setIsRendering(false);
     };
     
     const handleMouseUp = () => {
@@ -262,10 +314,8 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
       setOffsetX(newOffsetX);
       setOffsetY(newOffsetY);
       
-      // Debounce the redraw
-      if (!isRendering) {
-        drawCanvas();
-      }
+      // Redraw with new scale and position
+      setIsRendering(false);
     };
     
     // Touch event handlers
@@ -315,10 +365,7 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
         setLastX(x);
         setLastY(y);
         
-        // Debounce the redraw
-        if (!isRendering) {
-          drawCanvas();
-        }
+        setIsRendering(false);
       } else if (e.touches.length === 2) {
         // Pinch zoom
         const touch1 = e.touches[0];
@@ -356,10 +403,7 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
           setLastX(centerX);
           setLastY(centerY);
           
-          // Debounce the redraw
-          if (!isRendering) {
-            drawCanvas();
-          }
+          setIsRendering(false);
         }
       }
     };
@@ -374,7 +418,7 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
     
     return (
       <div 
-        className="w-full h-full"
+        className="w-full h-full relative"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}

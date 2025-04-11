@@ -96,7 +96,7 @@
 
 @layer components {
   .canvas-container {
-    @apply relative overflow-hidden bg-gray-100 rounded-md touch-none;
+    @apply relative overflow-hidden bg-gray-100 touch-none;
     width: 100%;
     max-width: 500px;
     height: auto;
@@ -114,15 +114,15 @@
   
   /* Premium styling for client page */
   .client-header {
-    @apply bg-gradient-to-r from-gray-50 to-gray-100 p-4 rounded-t-lg border-b border-gray-200 flex justify-between items-center;
+    @apply p-4 flex flex-col items-start;
   }
   
   .client-title {
-    @apply text-gray-800 font-serif;
+    @apply text-gray-800 text-2xl font-medium;
   }
   
   .client-subtitle {
-    @apply text-gray-600 text-sm font-serif;
+    @apply text-gray-600 text-sm;
   }
   
   .client-logo-container {
@@ -187,14 +187,40 @@
     }
   }
 
+  /* Client page specific */
+  .client-content {
+    @apply p-6 bg-[#F9FAFB];
+  }
+  
+  .client-section-title {
+    @apply text-lg font-medium text-gray-800 mb-3;
+  }
+  
+  .client-input {
+    @apply border-gray-300 rounded-md w-full;
+  }
+  
+  .client-button-primary {
+    @apply w-full bg-blue-600 text-white py-3 flex items-center justify-center font-medium rounded-md hover:bg-blue-700;
+  }
+  
+  .client-button-secondary {
+    @apply w-full border border-gray-300 bg-white text-gray-700 py-3 flex items-center justify-center font-medium rounded-md hover:bg-gray-50;
+  }
+  
+  /* Preview container */
+  .preview-container {
+    @apply bg-white shadow-inner overflow-hidden;
+  }
+
   /* Mobile optimizations */
   @media (max-width: 768px) {
     .canvas-container {
-      @apply border-0 shadow-none;
+      @apply shadow-none;
     }
     
     .client-header {
-      @apply flex-col items-start space-y-2 py-2;
+      @apply space-y-2 py-2;
     }
     
     .client-logo-container {
