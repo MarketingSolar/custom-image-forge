@@ -21,6 +21,7 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
     const [lastX, setLastX] = useState(0);
     const [lastY, setLastY] = useState(0);
     const [lastDist, setLastDist] = useState(0);
+    const [isFrameLoaded, setIsFrameLoaded] = useState(false);
     
     // Initialize canvas
     useEffect(() => {
@@ -41,12 +42,25 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
     // Expose canvas to parent component for download
     useImperativeHandle(ref, () => canvas as HTMLCanvasElement);
     
+    // Pre-load frame image
+    useEffect(() => {
+      if (frameImage && ctx && canvas) {
+        const img = new Image();
+        img.onload = () => {
+          setIsFrameLoaded(true);
+          drawCanvas();
+        };
+        img.src = frameImage;
+      }
+    }, [frameImage, ctx, canvas]);
+    
     // Drawing function
     const drawCanvas = useCallback(() => {
       if (!ctx || !canvas) return;
       
-      // Clear canvas
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Clear canvas with a solid background instead of transparent
+      ctx.fillStyle = "#f3f4f6"; // Light gray background
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       
       // Draw background image if available
       if (backgroundImage) {
@@ -80,7 +94,7 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
         frameImg.onload = () => {
           ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
           
-          // Draw footer after frame
+          // Draw footer after frame if needed
           if (footerImage) {
             const footerImg = new Image();
             footerImg.onload = () => {
@@ -180,8 +194,6 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
     
     // Mouse and touch event handlers
     const handleMouseDown = (e: React.MouseEvent) => {
-      if (!backgroundImage) return;
-      
       setIsDragging(true);
       const rect = (e.target as HTMLElement).getBoundingClientRect();
       setLastX(e.clientX - rect.left);
@@ -189,7 +201,7 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
     };
     
     const handleMouseMove = (e: React.MouseEvent) => {
-      if (!isDragging || !backgroundImage) return;
+      if (!isDragging) return;
       
       const rect = (e.target as HTMLElement).getBoundingClientRect();
       const x = e.clientX - rect.left;
@@ -204,6 +216,8 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
       setOffsetY(prev => prev + deltaY);
       setLastX(x);
       setLastY(y);
+      
+      drawCanvas();
     };
     
     const handleMouseUp = () => {
@@ -213,8 +227,6 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
     const handleWheel = (e: React.WheelEvent) => {
       e.preventDefault(); // Prevent page scrolling
       e.stopPropagation(); // Stop event propagation
-      
-      if (!backgroundImage) return;
       
       const rect = (e.target as HTMLElement).getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
@@ -239,12 +251,12 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
       setScale(newScale);
       setOffsetX(newOffsetX);
       setOffsetY(newOffsetY);
+      
+      drawCanvas();
     };
     
     // Touch event handlers
     const handleTouchStart = (e: React.TouchEvent) => {
-      if (!backgroundImage) return;
-      
       e.preventDefault();
       const rect = (e.target as HTMLElement).getBoundingClientRect();
       
@@ -272,8 +284,6 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
     };
     
     const handleTouchMove = (e: React.TouchEvent) => {
-      if (!backgroundImage) return;
-      
       e.preventDefault();
       const rect = (e.target as HTMLElement).getBoundingClientRect();
       
@@ -291,6 +301,8 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
         setOffsetY(prev => prev + deltaY);
         setLastX(x);
         setLastY(y);
+        
+        drawCanvas();
       } else if (e.touches.length === 2) {
         // Pinch zoom
         const touch1 = e.touches[0];
@@ -327,6 +339,8 @@ const ImageCanvas = forwardRef<HTMLCanvasElement, ImageCanvasProps>(
           setLastDist(distance);
           setLastX(centerX);
           setLastY(centerY);
+          
+          drawCanvas();
         }
       }
     };

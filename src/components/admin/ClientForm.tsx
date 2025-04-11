@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, Upload } from "lucide-react";
 
 const ClientForm = () => {
   const { clients, addClient, updateClient } = useClient();
@@ -17,13 +17,20 @@ const ClientForm = () => {
   
   const [formData, setFormData] = useState({
     name: "",
-    url: ""
+    companyName: "",
+    url: "",
+    logo: null as string | null,
+    password: ""
   });
   
   const [errors, setErrors] = useState({
     name: "",
-    url: ""
+    companyName: "",
+    url: "",
+    password: ""
   });
+
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
   // Load client data if editing an existing client
   useEffect(() => {
@@ -32,8 +39,12 @@ const ClientForm = () => {
       if (client) {
         setFormData({
           name: client.name,
-          url: client.url
+          companyName: client.companyName || "",
+          url: client.url,
+          logo: client.logo,
+          password: client.password || ""
         });
+        setLogoPreview(client.logo);
       } else {
         navigate("/admin/dashboard");
       }
@@ -42,7 +53,7 @@ const ClientForm = () => {
 
   const validateForm = () => {
     let valid = true;
-    const newErrors = { name: "", url: "" };
+    const newErrors = { name: "", companyName: "", url: "", password: "" };
     
     if (!formData.name.trim()) {
       newErrors.name = "O nome do cliente é obrigatório";
@@ -70,6 +81,19 @@ const ClientForm = () => {
     return valid;
   };
 
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const logoData = event.target?.result as string;
+      setLogoPreview(logoData);
+      setFormData(prev => ({ ...prev, logo: logoData }));
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -88,7 +112,6 @@ const ClientForm = () => {
         ...formData,
         frame: null,
         footer: null,
-        logo: null,
         textPoints: []
       });
       toast({
@@ -114,32 +137,46 @@ const ClientForm = () => {
     <div className="max-w-2xl mx-auto">
       <Button 
         variant="ghost" 
-        className="mb-4"
+        className="mb-4 text-gray-800"
         onClick={() => navigate("/admin/dashboard")}
       >
         <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
       </Button>
       
-      <Card>
-        <CardHeader>
-          <CardTitle>{clientId ? "Editar Cliente" : "Novo Cliente"}</CardTitle>
+      <Card className="shadow-md border-gray-200">
+        <CardHeader className="bg-gray-50">
+          <CardTitle className="text-gray-800">{clientId ? "Editar Cliente" : "Novo Cliente"}</CardTitle>
         </CardHeader>
         <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 p-6">
             <div className="space-y-2">
-              <Label htmlFor="name">Nome do Cliente</Label>
+              <Label htmlFor="name" className="text-gray-700">Nome do Cliente</Label>
               <Input
                 id="name"
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
                 placeholder="Nome da empresa ou cliente"
+                className="border-gray-300"
               />
               {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="url">URL Personalizada</Label>
+              <Label htmlFor="companyName" className="text-gray-700">Nome da Empresa</Label>
+              <Input
+                id="companyName"
+                name="companyName"
+                value={formData.companyName}
+                onChange={handleChange}
+                placeholder="Nome comercial da empresa"
+                className="border-gray-300"
+              />
+              {errors.companyName && <p className="text-sm text-red-500">{errors.companyName}</p>}
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="url" className="text-gray-700">URL Personalizada</Label>
               <div className="flex items-center">
                 <span className="text-gray-500 mr-2">www.meusite.com.br/</span>
                 <Input
@@ -148,7 +185,7 @@ const ClientForm = () => {
                   value={formData.url}
                   onChange={handleChange}
                   placeholder="nome-do-cliente"
-                  className="flex-1"
+                  className="flex-1 border-gray-300"
                 />
               </div>
               {errors.url && <p className="text-sm text-red-500">{errors.url}</p>}
@@ -156,18 +193,57 @@ const ClientForm = () => {
                 Use apenas letras, números, traços e underscores.
               </p>
             </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-gray-700">Senha de Acesso do Cliente</Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="Senha de acesso (opcional)"
+                className="border-gray-300"
+              />
+              <p className="text-xs text-gray-500">
+                Deixe em branco para acesso público sem senha.
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="logo" className="text-gray-700">Logo da Empresa</Label>
+              <div className="flex flex-col space-y-3">
+                <Input
+                  id="logo"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoUpload}
+                  className="border-gray-300"
+                />
+                {logoPreview && (
+                  <div className="mt-2 border rounded-md p-2 bg-gray-50 max-w-xs">
+                    <img 
+                      src={logoPreview} 
+                      alt="Logo preview" 
+                      className="max-h-24 object-contain mx-auto"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
           </CardContent>
-          <CardFooter className="flex justify-end space-x-2">
+          <CardFooter className="flex justify-end space-x-2 bg-gray-50 border-t">
             <Button 
               type="button" 
               variant="outline"
               onClick={() => navigate("/admin/dashboard")}
+              className="border-gray-300 text-gray-700"
             >
               Cancelar
             </Button>
             <Button 
               type="submit"
-              className="bg-gradient-to-r from-brand-DEFAULT to-brand-secondary"
+              className="bg-gradient-to-r from-brand-DEFAULT to-brand-secondary text-white"
             >
               <Save className="mr-2 h-5 w-5" />
               {clientId ? "Atualizar" : "Salvar"}

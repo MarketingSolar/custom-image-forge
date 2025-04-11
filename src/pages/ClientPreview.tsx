@@ -24,6 +24,8 @@ const ClientPreview = () => {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [textValues, setTextValues] = useState<TextInputValue>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [clientPassword, setClientPassword] = useState("");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -40,9 +42,27 @@ const ClientPreview = () => {
           initialValues[point.id] = "";
         });
         setTextValues(initialValues);
+        
+        // If client doesn't have a password requirement, set as authenticated
+        if (!foundClient.password) {
+          setIsAuthenticated(true);
+        }
       }
     }
   }, [clientUrl, getClientByUrl]);
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (client && client.password === clientPassword) {
+      setIsAuthenticated(true);
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Senha incorreta",
+        description: "A senha informada não está correta."
+      });
+    }
+  };
 
   const handleFileUpload = (file: File) => {
     setIsLoading(true);
@@ -180,26 +200,61 @@ const ClientPreview = () => {
     return <NotFound />;
   }
 
+  if (client.password && !isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-r from-gray-100 to-gray-200 py-10 px-4 flex items-center justify-center">
+        <Card className="w-full max-w-md animate-zoom-fade-in">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl text-gray-800">Área Restrita</CardTitle>
+            <CardDescription>
+              Esta área é protegida. Digite a senha para continuar.
+            </CardDescription>
+          </CardHeader>
+          <form onSubmit={handlePasswordSubmit}>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="password">Senha de acesso</Label>
+                <Input 
+                  id="password" 
+                  type="password" 
+                  value={clientPassword}
+                  onChange={(e) => setClientPassword(e.target.value)}
+                  placeholder="Digite a senha"
+                  required
+                />
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button className="w-full bg-gradient-to-r from-brand-DEFAULT to-brand-secondary text-white">
+                Acessar
+              </Button>
+            </CardFooter>
+          </form>
+        </Card>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-r from-gray-100 to-gray-200 py-10 px-4">
+    <div className="min-h-screen bg-gradient-to-r from-gray-100 to-gray-200 py-8 px-4">
       <div className="container mx-auto max-w-5xl">
         <Card className="animate-zoom-fade-in overflow-hidden shadow-lg border-0">
-          <CardHeader className="client-header">
+          <CardHeader className="client-header border-0">
             <div>
               <CardTitle className="client-title text-2xl">Gerador de Imagens</CardTitle>
               <CardDescription className="client-subtitle">
-                Crie sua imagem personalizada para {client.name}
+                Crie sua imagem personalizada para {client.companyName || client.name}
               </CardDescription>
             </div>
             <div className="client-logo-container">
               {client.logo ? (
                 <img 
                   src={client.logo} 
-                  alt={`${client.name} Logo`} 
+                  alt={`${client.companyName || client.name} Logo`} 
                   className="client-logo" 
                 />
               ) : (
-                <div className="client-logo-text">{client.name}</div>
+                <div className="client-logo-text">{client.companyName || client.name}</div>
               )}
             </div>
           </CardHeader>
@@ -233,12 +288,12 @@ const ClientPreview = () => {
                   )}
                 </div>
                 
-                <div className="aspect-square relative bg-gray-100 rounded-lg overflow-hidden shadow-inner" style={{ maxWidth: "95%" }}>
+                <div className="aspect-square relative bg-gray-100 border-0 rounded-lg overflow-hidden shadow-inner" style={{ maxWidth: "90%" }}>
                   <ImageCanvas
                     ref={canvasRef}
                     backgroundImage={uploadedImage}
                     frameImage={client.frame}
-                    footerImage={client.footer}
+                    footerImage={null} // Remove footer image as requested
                     textPoints={client.textPoints}
                     textValues={textValues}
                   />
@@ -268,7 +323,7 @@ const ClientPreview = () => {
                     </p>
                   ) : (
                     <div className="space-y-3">
-                      {client.textPoints.map((point, index) => (
+                      {client.textPoints.map((point) => (
                         <div key={point.id} className="space-y-1">
                           <Label htmlFor={`text-${point.id}`} className="text-gray-700">
                             {point.name}

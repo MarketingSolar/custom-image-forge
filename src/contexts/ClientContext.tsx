@@ -9,16 +9,18 @@ export type TextPoint = {
   fontFamily: string;
   fontSize: number;
   fontStyle: string[];
-  color?: string; // Add color property for text
+  color?: string; 
 };
 
 export type Client = {
   id: string;
   name: string;
+  companyName?: string;
   url: string;
   frame: string | null;
   footer: string | null;
   logo: string | null;
+  password?: string;
   textPoints: TextPoint[];
 };
 

@@ -49,13 +49,13 @@ const AdminLogin = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-brand-DEFAULT to-brand-secondary p-4">
       <Card className="w-full max-w-md animate-zoom-fade-in bg-white shadow-xl">
-        <CardHeader className="space-y-1">
+        <CardHeader className="space-y-1 bg-gray-50">
           <CardTitle className="text-2xl text-center text-gray-800">Painel Administrativo</CardTitle>
           <CardDescription className="text-center text-gray-600">
             Entre com suas credenciais para acessar o painel
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="username" className="text-gray-700">Usuário</Label>
@@ -89,8 +89,8 @@ const AdminLogin = () => {
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="flex justify-center">
-          <p className="text-sm text-gray-500">
+        <CardFooter className="flex justify-center bg-gray-50 text-gray-600">
+          <p className="text-sm">
             Use admin / admin123 para testar
           </p>
         </CardFooter>

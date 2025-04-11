@@ -96,7 +96,7 @@
 
 @layer components {
   .canvas-container {
-    @apply relative overflow-hidden bg-gray-100 border border-gray-300 rounded-md touch-none;
+    @apply relative overflow-hidden bg-gray-100 rounded-md touch-none;
     width: 100%;
     max-width: 600px;
     height: auto;
@@ -138,7 +138,67 @@
   }
   
   .tool-button {
-    @apply w-12 h-12 rounded-lg flex items-center justify-center bg-white border border-gray-200 shadow-sm hover:bg-gray-50 transition-all;
+    @apply w-10 h-10 rounded-lg flex items-center justify-center bg-white border border-gray-200 shadow-sm hover:bg-gray-50 transition-all;
+  }
+
+  /* Admin dashboard styling */
+  .admin-header {
+    @apply bg-white text-gray-800 p-4 border-b border-gray-200 shadow-sm;
+  }
+
+  .admin-sidebar {
+    @apply bg-white border-r border-gray-200 shadow-sm;
+  }
+
+  .admin-menu-item {
+    @apply px-4 py-2 hover:bg-gray-100 text-gray-700 rounded-md transition-colors;
+  }
+  
+  .admin-menu-item.active {
+    @apply bg-brand-DEFAULT text-white;
+  }
+
+  /* Animation classes */
+  .animate-zoom-fade-in {
+    animation: zoom-fade-in 0.3s ease-out;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+  }
+
+  @keyframes zoom-fade-in {
+    0% {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes fade-in {
+    0% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+
+  /* Mobile optimizations */
+  @media (max-width: 768px) {
+    .canvas-container {
+      @apply border-0 shadow-none;
+    }
+    
+    .client-header {
+      @apply flex-col items-start space-y-2 py-2;
+    }
+    
+    .client-logo-container {
+      @apply self-start h-10;
+    }
   }
 }
-
