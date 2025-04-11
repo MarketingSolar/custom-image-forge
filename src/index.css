@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -13,11 +14,11 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 222.2 47.4% 11.2%;
+    --primary: 214 100% 21%;
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 213 100% 27%;
+    --secondary-foreground: 210 40% 98%;
 
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
@@ -35,19 +36,12 @@
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
@@ -97,5 +91,24 @@
 
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  .canvas-container {
+    @apply relative overflow-hidden bg-gray-100 border border-gray-300 rounded-md touch-none;
+    width: 100%;
+    max-width: 600px;
+    height: auto;
+    aspect-ratio: 1 / 1;
+  }
+
+  .admin-text-point {
+    @apply absolute w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center cursor-move z-10;
+  }
+
+  .admin-text-label {
+    @apply absolute text-xs font-medium text-blue-500 mt-1 whitespace-nowrap;
+    transform: translateY(100%);
   }
 }
