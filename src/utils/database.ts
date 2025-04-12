@@ -16,10 +16,13 @@ export type DBUser = {
 // User authentication functions
 export const authenticateUser = async (username: string, password: string): Promise<DBUser | null> => {
   try {
+    console.log("Authenticating user:", username);
     const response = await axios.post(`${API_BASE_URL}/login.php`, {
       username,
       password
     });
+    
+    console.log("Authentication response:", response.data);
     
     if (response.data.success) {
       return response.data.user;
@@ -33,7 +36,10 @@ export const authenticateUser = async (username: string, password: string): Prom
 
 export const getUserById = async (userId: string): Promise<DBUser | null> => {
   try {
+    console.log("Getting user by ID:", userId);
     const response = await axios.get(`${API_BASE_URL}/user.php?id=${userId}`);
+    
+    console.log("Get user response:", response.data);
     
     if (response.data.success) {
       return response.data.user;
