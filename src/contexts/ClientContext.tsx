@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import axios from "axios";
 import { useToast } from "@/components/ui/use-toast";
+import { Spinner } from "@/components/ui/spinner";
 
 export type TextPoint = {
   id: string;
@@ -102,7 +103,13 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setIsLoading(true);
       console.log("Adding client:", client);
       
-      const response = await axios.post(`${API_BASE_URL}/clients.php`, client);
+      // Force Content-Type to application/json
+      const response = await axios.post(`${API_BASE_URL}/clients.php`, client, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
       console.log("Add client response:", response.data);
       
       if (response.data.success) {
@@ -157,6 +164,10 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const response = await axios.put(`${API_BASE_URL}/clients.php`, {
         id,
         ...updates
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
       
       console.log("Update client response:", response.data);
@@ -343,6 +354,14 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       isLoading,
       refreshClients
     }}>
+      {isLoading && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white p-4 rounded-lg shadow-lg flex flex-col items-center">
+            <Spinner size="lg" />
+            <p className="mt-2 text-gray-700">Carregando...</p>
+          </div>
+        </div>
+      )}
       {children}
     </ClientContext.Provider>
   );

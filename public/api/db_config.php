@@ -8,6 +8,12 @@ error_reporting(E_ALL);
 // Function to log errors
 function logDatabaseError($message) {
     error_log("DATABASE ERROR: " . $message);
+    // Create logs directory if it doesn't exist
+    if (!file_exists('logs')) {
+        mkdir('logs', 0755);
+    }
+    // Log to file with timestamp
+    file_put_contents('logs/db_errors.log', date('[Y-m-d H:i:s] ') . $message . PHP_EOL, FILE_APPEND);
 }
 
 // Database configuration
