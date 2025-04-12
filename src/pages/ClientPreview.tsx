@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { useParams, Navigate } from "react-router-dom";
 import { useClient, Client, TextPoint } from "@/contexts/ClientContext";
@@ -17,39 +16,61 @@ type TextInputValue = {
 
 const ClientPreview = () => {
   const { clientUrl } = useParams<{ clientUrl: string }>();
-  const { getClientByUrl } = useClient();
+  const { getClientByUrl, isLoading } = useClient();
   const { toast } = useToast();
   
   const [client, setClient] = useState<Client | null>(null);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [textValues, setTextValues] = useState<TextInputValue>({});
-  const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [clientPassword, setClientPassword] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [notFound, setNotFound] = useState(false);
+  
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageCanvasRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Load client data
   useEffect(() => {
-    if (clientUrl) {
-      const foundClient = getClientByUrl(clientUrl);
-      if (foundClient) {
-        setClient(foundClient);
-        
-        // Initialize text values
-        const initialValues: TextInputValue = {};
-        foundClient.textPoints.forEach(point => {
-          initialValues[point.id] = "";
-        });
-        setTextValues(initialValues);
-        
-        // If client doesn't have a password requirement, set as authenticated
-        if (!foundClient.password) {
-          setIsAuthenticated(true);
-        }
+    const fetchClient = async () => {
+      if (!clientUrl) {
+        setNotFound(true);
+        setLoading(false);
+        return;
       }
-    }
+      
+      try {
+        const foundClient = await getClientByUrl(clientUrl);
+        
+        if (foundClient) {
+          setClient(foundClient);
+          
+          // Initialize text values
+          const initialValues: TextInputValue = {};
+          foundClient.textPoints.forEach(point => {
+            initialValues[point.id] = "";
+          });
+          setTextValues(initialValues);
+          
+          // If client doesn't have a password requirement, set as authenticated
+          if (!foundClient.password) {
+            setIsAuthenticated(true);
+          }
+          
+          setNotFound(false);
+        } else {
+          setNotFound(true);
+        }
+      } catch (error) {
+        console.error("Error fetching client:", error);
+        setNotFound(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchClient();
   }, [clientUrl, getClientByUrl]);
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
@@ -66,12 +87,12 @@ const ClientPreview = () => {
   };
 
   const handleFileUpload = (file: File) => {
-    setIsLoading(true);
+    setLoading(true);
     
     const reader = new FileReader();
     reader.onload = (e) => {
       setUploadedImage(e.target?.result as string);
-      setIsLoading(false);
+      setLoading(false);
     };
     reader.onerror = () => {
       toast({
@@ -79,7 +100,7 @@ const ClientPreview = () => {
         title: "Erro ao carregar imagem",
         description: "Não foi possível carregar a imagem selecionada."
       });
-      setIsLoading(false);
+      setLoading(false);
     };
     reader.readAsDataURL(file);
   };
@@ -207,11 +228,19 @@ const ClientPreview = () => {
     fileInputRef.current?.click();
   };
 
-  if (!client) {
+  if (loading || isLoading) {
+    return (
+      <div className="min-h-screen bg-[#F9FAFB] py-10 px-4 flex items-center justify-center">
+        <p className="text-lg text-gray-600">Carregando...</p>
+      </div>
+    );
+  }
+
+  if (notFound) {
     return <NotFound />;
   }
 
-  if (client.password && !isAuthenticated) {
+  if (client && client.password && !isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#F9FAFB] py-10 px-4 flex items-center justify-center">
         <Card className="w-full max-w-md animate-zoom-fade-in shadow-md border-0">
@@ -252,14 +281,14 @@ const ClientPreview = () => {
         <Card className="animate-zoom-fade-in shadow-sm border-0">
           <div className="bg-white pt-4 px-6 pb-0">
             <div className="flex items-center mb-2">
-              {client.logo ? (
+              {client?.logo ? (
                 <img 
                   src={client.logo} 
                   alt={`${client.companyName || client.name} Logo`} 
                   className="h-8 mr-4" 
                 />
               ) : (
-                <div className="text-xl font-medium text-gray-800 mr-4">{client.companyName || client.name}</div>
+                <div className="text-xl font-medium text-gray-800 mr-4">{client?.companyName || client?.name}</div>
               )}
             </div>
             <div className="client-header pb-4">
@@ -297,17 +326,17 @@ const ClientPreview = () => {
                   </div>
                 </div>
 
-                {/* Informações do projeto */}
+                {/* Informaç��es do projeto */}
                 <div>
                   <h3 className="client-section-title">Informações do Projeto</h3>
                   
-                  {client.textPoints.length === 0 ? (
+                  {client?.textPoints.length === 0 ? (
                     <p className="text-sm text-gray-500">
                       Não há campos de informação configurados para este cliente.
                     </p>
                   ) : (
                     <div className="space-y-4">
-                      {client.textPoints.map((point, index) => (
+                      {client?.textPoints.map((point, index) => (
                         <div key={point.id} className="space-y-2">
                           <Label htmlFor={`text-${point.id}`} className="text-gray-700">
                             {point.name} {index + 1}
@@ -330,7 +359,7 @@ const ClientPreview = () => {
                   <Button
                     onClick={handleDownload}
                     className="client-button-primary"
-                    disabled={!client.frame && !uploadedImage}
+                    disabled={!client?.frame && !uploadedImage}
                   >
                     <Download className="mr-2 h-5 w-5" /> Baixar Imagem
                   </Button>
@@ -368,9 +397,9 @@ const ClientPreview = () => {
                       imageCanvasRef.current = el;
                     }}
                     backgroundImage={uploadedImage}
-                    frameImage={client.frame}
+                    frameImage={client?.frame}
                     footerImage={null}
-                    textPoints={client.textPoints}
+                    textPoints={client?.textPoints || []}
                     textValues={textValues}
                   />
                 </div>
