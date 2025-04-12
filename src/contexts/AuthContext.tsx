@@ -1,5 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { authenticateUser, getUserById } from "@/utils/database";
 
 type User = {
   id: string;
@@ -16,41 +17,57 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// In a real application, you would validate against a real backend
-// For this demo, we're using localStorage and hardcoded admin
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   
   useEffect(() => {
-    // Check for stored user on initial load
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      setUser(parsedUser);
-      setIsAuthenticated(true);
+    // Check for stored user ID on initial load
+    const storedUserId = localStorage.getItem("userId");
+    if (storedUserId) {
+      const fetchUser = async () => {
+        const dbUser = await getUserById(storedUserId);
+        if (dbUser) {
+          const userObj: User = {
+            id: dbUser.id,
+            username: dbUser.username,
+            isAdmin: dbUser.isAdmin,
+          };
+          setUser(userObj);
+          setIsAuthenticated(true);
+        } else {
+          // User not found in DB, clear localStorage
+          localStorage.removeItem("userId");
+        }
+      };
+      
+      fetchUser();
     }
   }, []);
 
   const login = async (username: string, password: string): Promise<boolean> => {
-    // In a real app, this would be an API call to your backend
-    if (username === "admin" && password === "admin123") {
-      const adminUser: User = {
-        id: "1",
-        username: "admin",
-        isAdmin: true,
+    // Real authentication via database
+    const dbUser = await authenticateUser(username, password);
+    
+    if (dbUser) {
+      const userObj: User = {
+        id: dbUser.id,
+        username: dbUser.username,
+        isAdmin: dbUser.isAdmin,
       };
       
-      localStorage.setItem("user", JSON.stringify(adminUser));
-      setUser(adminUser);
+      // Store only the user ID in localStorage
+      localStorage.setItem("userId", dbUser.id);
+      setUser(userObj);
       setIsAuthenticated(true);
       return true;
     }
+    
     return false;
   };
 
   const logout = () => {
-    localStorage.removeItem("user");
+    localStorage.removeItem("userId");
     setUser(null);
     setIsAuthenticated(false);
   };
