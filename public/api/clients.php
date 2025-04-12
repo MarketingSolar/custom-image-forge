@@ -22,7 +22,27 @@ require_once 'db_config.php';
 // Log function to help debug
 function logError($message, $data = null) {
     error_log("CLIENTS API ERROR: " . $message . ($data ? " - " . json_encode($data) : ""));
+    
+    // Create logs directory if it doesn't exist
+    if (!file_exists('logs')) {
+        mkdir('logs', 0755);
+    }
+    
+    // Log to file with timestamp
+    file_put_contents('logs/clients_api.log', date('[Y-m-d H:i:s] ') . $message . ($data ? " - " . json_encode($data) : "") . PHP_EOL, FILE_APPEND);
 }
+
+// Debug incoming request
+$requestMethod = $_SERVER['REQUEST_METHOD'];
+$requestPath = $_SERVER['REQUEST_URI'];
+$requestData = file_get_contents('php://input');
+
+logError("Received request", [
+    'method' => $requestMethod,
+    'path' => $requestPath,
+    'data' => $requestData,
+    'contentType' => $_SERVER['CONTENT_TYPE'] ?? 'not set'
+]);
 
 // Get request method
 $method = $_SERVER['REQUEST_METHOD'];
@@ -31,6 +51,8 @@ $method = $_SERVER['REQUEST_METHOD'];
 $input = null;
 if ($method === 'POST' || $method === 'PUT') {
     $inputRaw = file_get_contents('php://input');
+    logError("Raw input data", $inputRaw);
+    
     $input = json_decode($inputRaw, true);
     if (json_last_error() !== JSON_ERROR_NONE) {
         logError("Invalid JSON input", $inputRaw);
@@ -38,6 +60,8 @@ if ($method === 'POST' || $method === 'PUT') {
         echo json_encode(["success" => false, "message" => "Invalid JSON input: " . json_last_error_msg()]);
         exit();
     }
+    
+    logError("Decoded input data", $input);
 }
 
 // GET: Fetch all clients or a specific client
@@ -582,4 +606,5 @@ else if ($method === 'DELETE') {
 }
 
 $conn->close();
+logError("Request completed");
 ?>

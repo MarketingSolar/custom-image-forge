@@ -1,0 +1,15 @@
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Não redirecionar solicitações para a pasta api
+  RewriteRule ^api/ - [L]
+  
+  # Se o arquivo ou diretório não existir
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+
+  # Redireciona tudo para o index.html
+  RewriteRule ^ index.html [L]
+</IfModule>

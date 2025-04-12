@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import axios from "axios";
 import { useToast } from "@/components/ui/use-toast";
@@ -103,8 +102,14 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setIsLoading(true);
       console.log("Adding client:", client);
       
+      const stringifiedData = JSON.stringify(client);
+      console.log("Stringified client data:", stringifiedData);
+      
       // Force Content-Type to application/json
-      const response = await axios.post(`${API_BASE_URL}/clients.php`, client, {
+      const response = await axios({
+        method: 'post',
+        url: `${API_BASE_URL}/clients.php`,
+        data: client,
         headers: {
           'Content-Type': 'application/json'
         }
@@ -135,6 +140,16 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     } catch (error) {
       console.error("Error adding client:", error);
+      
+      if (axios.isAxiosError(error)) {
+        console.error("Axios error details:", {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status,
+          headers: error.response?.headers
+        });
+      }
+      
       toast({
         variant: "destructive",
         title: "Erro ao adicionar cliente",
@@ -148,7 +163,7 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const newClient = { 
       ...client, 
       id: Date.now().toString(),
-      textPoints: [],
+      textPoints: client.textPoints || [],
     };
     setClients(prevClients => [...prevClients, newClient]);
     
