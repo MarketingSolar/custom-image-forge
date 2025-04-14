@@ -102,44 +102,67 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setIsLoading(true);
       console.log("Adding client:", client);
       
-      const stringifiedData = JSON.stringify(client);
-      console.log("Stringified client data:", stringifiedData);
+      // Debug the request
+      console.log("API URL:", `${API_BASE_URL}/clients.php`);
+      console.log("Client data being sent:", JSON.stringify(client, null, 2));
       
-      // Force Content-Type to application/json
-      const response = await axios({
-        method: 'post',
-        url: `${API_BASE_URL}/clients.php`,
-        data: client,
-        headers: {
-          'Content-Type': 'application/json'
+      // Try with XMLHttpRequest for direct debugging
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", `${API_BASE_URL}/clients.php`, true);
+      xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+      xhr.onreadystatechange = async function() {
+        if (xhr.readyState === 4) {
+          console.log("XHR Status:", xhr.status);
+          console.log("XHR Response:", xhr.responseText);
+          
+          try {
+            const response = JSON.parse(xhr.responseText);
+            if (response.success) {
+              const newClient = response.client;
+              setClients(prevClients => [...prevClients, newClient]);
+              localStorage.setItem("clients", JSON.stringify([...clients, newClient]));
+              
+              toast({
+                title: "Cliente adicionado",
+                description: `O cliente ${client.name} foi adicionado com sucesso!`,
+              });
+              
+              // Refresh clients from the server to ensure we have the latest data
+              await fetchClients();
+            } else {
+              console.error("Failed to add client via XHR:", response.message);
+              toast({
+                variant: "destructive",
+                title: "Erro ao adicionar cliente",
+                description: response.message || "Ocorreu um erro ao adicionar o cliente.",
+              });
+            }
+          } catch (parseError) {
+            console.error("Error parsing XHR response:", parseError, xhr.responseText);
+          }
+          
+          setIsLoading(false);
         }
-      });
+      };
       
-      console.log("Add client response:", response.data);
-      
-      if (response.data.success) {
-        const newClient = response.data.client;
+      xhr.onerror = function() {
+        console.error("XHR Request failed");
+        setIsLoading(false);
+        
+        // Fallback to local storage if API fails
+        const newClient = { 
+          ...client, 
+          id: Date.now().toString(),
+          textPoints: client.textPoints || [],
+        };
         setClients(prevClients => [...prevClients, newClient]);
-        
-        // Update localStorage as backup
         localStorage.setItem("clients", JSON.stringify([...clients, newClient]));
-        
-        toast({
-          title: "Cliente adicionado",
-          description: `O cliente ${client.name} foi adicionado com sucesso!`,
-        });
-        
-        return;
-      } else {
-        console.error("Failed to add client:", response.data.message);
-        toast({
-          variant: "destructive",
-          title: "Erro ao adicionar cliente",
-          description: response.data.message || "Ocorreu um erro ao adicionar o cliente.",
-        });
-      }
+      };
+      
+      xhr.send(JSON.stringify(client));
+      
     } catch (error) {
-      console.error("Error adding client:", error);
+      console.error("Error in addClient function:", error);
       
       if (axios.isAxiosError(error)) {
         console.error("Axios error details:", {
@@ -155,20 +178,20 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         title: "Erro ao adicionar cliente",
         description: "Ocorreu um erro ao conectar ao servidor.",
       });
-    } finally {
+      
       setIsLoading(false);
+      
+      // Fallback to local storage if API fails
+      const newClient = { 
+        ...client, 
+        id: Date.now().toString(),
+        textPoints: client.textPoints || [],
+      };
+      setClients(prevClients => [...prevClients, newClient]);
+      
+      // Update localStorage
+      localStorage.setItem("clients", JSON.stringify([...clients, newClient]));
     }
-    
-    // Fallback to local storage if API fails
-    const newClient = { 
-      ...client, 
-      id: Date.now().toString(),
-      textPoints: client.textPoints || [],
-    };
-    setClients(prevClients => [...prevClients, newClient]);
-    
-    // Update localStorage
-    localStorage.setItem("clients", JSON.stringify([...clients, newClient]));
   };
 
   const updateClient = async (id: string, updates: Partial<Client>) => {
@@ -370,10 +393,10 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       refreshClients
     }}>
       {isLoading && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white p-4 rounded-lg shadow-lg flex flex-col items-center">
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl flex flex-col items-center">
             <Spinner size="lg" />
-            <p className="mt-2 text-gray-700">Carregando...</p>
+            <p className="mt-4 text-gray-700 font-medium">Carregando...</p>
           </div>
         </div>
       )}

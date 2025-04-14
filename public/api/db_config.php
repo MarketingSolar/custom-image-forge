@@ -36,6 +36,17 @@ if (!$conn->set_charset("utf8mb4")) {
     logDatabaseError("Error setting charset: " . $conn->error);
 }
 
-// Log successful connection
-logDatabaseError("Database connected successfully");
+// Debug database connection
+logDatabaseError("Database connected successfully with user: $username to database: $database");
+
+// Check if required tables exist
+$tables = ['clients', 'text_points'];
+foreach ($tables as $table) {
+    $result = $conn->query("SHOW TABLES LIKE '$table'");
+    if (!$result || $result->num_rows === 0) {
+        logDatabaseError("Table '$table' does not exist in database");
+    } else {
+        logDatabaseError("Table '$table' exists in database");
+    }
+}
 ?>
