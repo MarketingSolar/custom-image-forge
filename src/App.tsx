@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ClientProvider } from "./contexts/ClientContext";
 import Index from "./pages/Index";
@@ -26,20 +26,22 @@ function App() {
             <TooltipProvider>
               <Toaster />
               <Sonner />
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/admin" element={<AdminLogin />} />
-                <Route 
-                  path="/admin/dashboard/*" 
-                  element={
-                    <PrivateRoute>
-                      <AdminDashboard />
-                    </PrivateRoute>
-                  } 
-                />
-                <Route path="/:clientUrl" element={<ClientPreview />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
+              <BrowserRouter>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/admin" element={<AdminLogin />} />
+                  <Route 
+                    path="/admin/dashboard/*" 
+                    element={
+                      <PrivateRoute>
+                        <AdminDashboard />
+                      </PrivateRoute>
+                    } 
+                  />
+                  <Route path="/:clientUrl" element={<ClientPreview />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
             </TooltipProvider>
           </ClientProvider>
         </AuthProvider>

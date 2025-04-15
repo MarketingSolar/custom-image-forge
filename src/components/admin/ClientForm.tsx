@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useClient } from "@/contexts/ClientContext";
@@ -9,7 +10,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { ArrowLeft, Save, Upload } from "lucide-react";
 
 const ClientForm = () => {
-  const { clients, addClient, updateClient, refreshClients } = useClient();
+  const { clients, addClient, updateClient } = useClient();
   const navigate = useNavigate();
   const { clientId } = useParams();
   const { toast } = useToast();
@@ -31,6 +32,7 @@ const ClientForm = () => {
 
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
+  // Load client data if editing an existing client
   useEffect(() => {
     if (clientId) {
       const client = clients.find(c => c.id === clientId);
@@ -65,6 +67,7 @@ const ClientForm = () => {
       newErrors.url = "A URL deve conter apenas letras, números, traços e underscores";
       valid = false;
     } else {
+      // Check if URL already exists (except for the current client)
       const existingClient = clients.find(
         c => c.url === formData.url && c.id !== clientId
       );
@@ -91,51 +94,40 @@ const ClientForm = () => {
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) return;
     
-    try {
-      if (clientId) {
-        await updateClient(clientId, formData);
-        toast({
-          title: "Cliente atualizado",
-          description: `As informações do cliente "${formData.name}" foram atualizadas com sucesso.`
-        });
-      } else {
-        await addClient({
-          ...formData,
-          frame: null,
-          footer: null,
-          textPoints: []
-        });
-        
-        await refreshClients();
-        
-        toast({
-          title: "Cliente criado",
-          description: `O cliente "${formData.name}" foi criado com sucesso.`
-        });
-      }
-      
-      setTimeout(() => {
-        navigate("/admin/dashboard");
-      }, 500);
-    } catch (error) {
-      console.error("Error submitting form:", error);
+    if (clientId) {
+      // Updating existing client
+      updateClient(clientId, formData);
       toast({
-        variant: "destructive",
-        title: "Erro ao salvar cliente",
-        description: "Ocorreu um erro ao salvar os dados do cliente. Tente novamente."
+        title: "Cliente atualizado",
+        description: `As informações do cliente "${formData.name}" foram atualizadas com sucesso.`
+      });
+    } else {
+      // Creating new client
+      addClient({
+        ...formData,
+        frame: null,
+        footer: null,
+        textPoints: []
+      });
+      toast({
+        title: "Cliente criado",
+        description: `O cliente "${formData.name}" foi criado com sucesso.`
       });
     }
+    
+    navigate("/admin/dashboard");
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     
+    // Clear error for this field when user starts typing
     if (errors[name as keyof typeof errors]) {
       setErrors(prev => ({ ...prev, [name]: "" }));
     }

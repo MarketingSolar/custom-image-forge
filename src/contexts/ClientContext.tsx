@@ -1,7 +1,5 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
-import axios from "axios";
-import { useToast } from "@/components/ui/use-toast";
-import { Spinner } from "@/components/ui/spinner";
 
 export type TextPoint = {
   id: string;
@@ -28,353 +26,99 @@ export type Client = {
 
 type ClientContextType = {
   clients: Client[];
-  addClient: (client: Omit<Client, "id">) => Promise<void>;
-  updateClient: (id: string, updates: Partial<Client>) => Promise<void>;
-  deleteClient: (id: string) => Promise<void>;
-  getClientByUrl: (url: string) => Promise<Client | undefined>;
-  addTextPoint: (clientId: string, textPoint: Omit<TextPoint, "id">) => Promise<void>;
-  updateTextPoint: (clientId: string, textPointId: string, updates: Partial<TextPoint>) => Promise<void>;
-  deleteTextPoint: (clientId: string, textPointId: string) => Promise<void>;
+  addClient: (client: Omit<Client, "id">) => void;
+  updateClient: (id: string, updates: Partial<Client>) => void;
+  deleteClient: (id: string) => void;
+  getClientByUrl: (url: string) => Client | undefined;
+  addTextPoint: (clientId: string, textPoint: Omit<TextPoint, "id">) => void;
+  updateTextPoint: (clientId: string, textPointId: string, updates: Partial<TextPoint>) => void;
+  deleteTextPoint: (clientId: string, textPointId: string) => void;
   setCurrentImage: (imageUrl: string | null) => void;
   currentImage: string | null;
-  isLoading: boolean;
-  refreshClients: () => Promise<void>;
 };
-
-// API Base URL
-const API_BASE_URL = "/api";
 
 const ClientContext = createContext<ClientContextType | undefined>(undefined);
 
+// In a real app, this would connect to a backend API
 export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [clients, setClients] = useState<Client[]>([]);
   const [currentImage, setCurrentImage] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const { toast } = useToast();
   
-  // Function to fetch all clients from the database
-  const fetchClients = async () => {
-    try {
-      setIsLoading(true);
-      console.log("Fetching clients from API...");
-      const response = await axios.get(`${API_BASE_URL}/clients.php`);
-      console.log("API response:", response.data);
-      
-      if (response.data.success) {
-        setClients(response.data.clients);
-        console.log("Successfully loaded clients from API:", response.data.clients.length);
-        // Update localStorage for offline backup
-        localStorage.setItem("clients", JSON.stringify(response.data.clients));
-      } else {
-        console.error("Failed to fetch clients:", response.data.message);
-        // Load from localStorage as fallback
-        const storedClients = localStorage.getItem("clients");
-        if (storedClients) {
-          console.log("Loading clients from localStorage instead");
-          setClients(JSON.parse(storedClients));
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching clients:", error);
-      // Load from localStorage as fallback
-      const storedClients = localStorage.getItem("clients");
-      if (storedClients) {
-        console.log("Loading clients from localStorage due to error");
-        setClients(JSON.parse(storedClients));
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  // Load all clients from the database on initial mount
   useEffect(() => {
-    fetchClients();
+    // Load from localStorage on initial mount
+    const storedClients = localStorage.getItem("clients");
+    if (storedClients) {
+      setClients(JSON.parse(storedClients));
+    }
   }, []);
 
-  // Function to refresh clients data
-  const refreshClients = async () => {
-    await fetchClients();
+  // Save to localStorage whenever clients change
+  useEffect(() => {
+    localStorage.setItem("clients", JSON.stringify(clients));
+  }, [clients]);
+
+  const addClient = (client: Omit<Client, "id">) => {
+    const newClient = { 
+      ...client, 
+      id: Date.now().toString(),
+      textPoints: [],
+    };
+    setClients([...clients, newClient]);
   };
 
-  const addClient = async (client: Omit<Client, "id">) => {
-    try {
-      setIsLoading(true);
-      console.log("Adding client:", client);
-      
-      // Debug the request
-      console.log("API URL:", `${API_BASE_URL}/clients.php`);
-      console.log("Client data being sent:", JSON.stringify(client, null, 2));
-      
-      // Try with XMLHttpRequest for direct debugging
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", `${API_BASE_URL}/clients.php`, true);
-      xhr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-      xhr.onreadystatechange = async function() {
-        if (xhr.readyState === 4) {
-          console.log("XHR Status:", xhr.status);
-          console.log("XHR Response:", xhr.responseText);
-          
-          try {
-            const response = JSON.parse(xhr.responseText);
-            if (response.success) {
-              const newClient = response.client;
-              setClients(prevClients => [...prevClients, newClient]);
-              localStorage.setItem("clients", JSON.stringify([...clients, newClient]));
-              
-              toast({
-                title: "Cliente adicionado",
-                description: `O cliente ${client.name} foi adicionado com sucesso!`,
-              });
-              
-              // Refresh clients from the server to ensure we have the latest data
-              await fetchClients();
-            } else {
-              console.error("Failed to add client via XHR:", response.message);
-              toast({
-                variant: "destructive",
-                title: "Erro ao adicionar cliente",
-                description: response.message || "Ocorreu um erro ao adicionar o cliente.",
-              });
-            }
-          } catch (parseError) {
-            console.error("Error parsing XHR response:", parseError, xhr.responseText);
-          }
-          
-          setIsLoading(false);
-        }
-      };
-      
-      xhr.onerror = function() {
-        console.error("XHR Request failed");
-        setIsLoading(false);
-        
-        // Fallback to local storage if API fails
-        const newClient = { 
-          ...client, 
-          id: Date.now().toString(),
-          textPoints: client.textPoints || [],
-        };
-        setClients(prevClients => [...prevClients, newClient]);
-        localStorage.setItem("clients", JSON.stringify([...clients, newClient]));
-      };
-      
-      xhr.send(JSON.stringify(client));
-      
-    } catch (error) {
-      console.error("Error in addClient function:", error);
-      
-      if (axios.isAxiosError(error)) {
-        console.error("Axios error details:", {
-          message: error.message,
-          response: error.response?.data,
-          status: error.response?.status,
-          headers: error.response?.headers
-        });
-      }
-      
-      toast({
-        variant: "destructive",
-        title: "Erro ao adicionar cliente",
-        description: "Ocorreu um erro ao conectar ao servidor.",
-      });
-      
-      setIsLoading(false);
-      
-      // Fallback to local storage if API fails
-      const newClient = { 
-        ...client, 
-        id: Date.now().toString(),
-        textPoints: client.textPoints || [],
-      };
-      setClients(prevClients => [...prevClients, newClient]);
-      
-      // Update localStorage
-      localStorage.setItem("clients", JSON.stringify([...clients, newClient]));
-    }
-  };
-
-  const updateClient = async (id: string, updates: Partial<Client>) => {
-    try {
-      setIsLoading(true);
-      console.log("Updating client:", id, updates);
-      
-      const response = await axios.put(`${API_BASE_URL}/clients.php`, {
-        id,
-        ...updates
-      }, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      console.log("Update client response:", response.data);
-      
-      if (response.data.success) {
-        // Update the client in the local state
-        const updatedClients = clients.map(client => 
-          client.id === id ? { ...client, ...updates } : client
-        );
-        setClients(updatedClients);
-        
-        // Update localStorage
-        localStorage.setItem("clients", JSON.stringify(updatedClients));
-        
-        toast({
-          title: "Cliente atualizado",
-          description: `O cliente foi atualizado com sucesso!`,
-        });
-        return;
-      } else {
-        console.error("Failed to update client:", response.data.message);
-        toast({
-          variant: "destructive",
-          title: "Erro ao atualizar cliente",
-          description: response.data.message || "Ocorreu um erro ao atualizar o cliente.",
-        });
-      }
-    } catch (error) {
-      console.error("Error updating client:", error);
-      toast({
-        variant: "destructive",
-        title: "Erro ao atualizar cliente",
-        description: "Ocorreu um erro ao conectar ao servidor.",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-    
-    // Fallback to local storage if API fails
-    const updatedClients = clients.map(client => 
+  const updateClient = (id: string, updates: Partial<Client>) => {
+    setClients(clients.map(client => 
       client.id === id ? { ...client, ...updates } : client
-    );
-    setClients(updatedClients);
-    
-    // Update localStorage
-    localStorage.setItem("clients", JSON.stringify(updatedClients));
+    ));
   };
 
-  const deleteClient = async (id: string) => {
-    try {
-      setIsLoading(true);
-      console.log("Deleting client:", id);
-      
-      const response = await axios.delete(`${API_BASE_URL}/clients.php?id=${id}`);
-      console.log("Delete client response:", response.data);
-      
-      if (response.data.success) {
-        // Remove the client from local state
-        const updatedClients = clients.filter(client => client.id !== id);
-        setClients(updatedClients);
-        
-        // Update localStorage
-        localStorage.setItem("clients", JSON.stringify(updatedClients));
-        
-        toast({
-          title: "Cliente excluído",
-          description: `O cliente foi excluído com sucesso!`,
-        });
-        return;
-      } else {
-        console.error("Failed to delete client:", response.data.message);
-        toast({
-          variant: "destructive",
-          title: "Erro ao excluir cliente",
-          description: response.data.message || "Ocorreu um erro ao excluir o cliente.",
-        });
-      }
-    } catch (error) {
-      console.error("Error deleting client:", error);
-      toast({
-        variant: "destructive",
-        title: "Erro ao excluir cliente",
-        description: "Ocorreu um erro ao conectar ao servidor.",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-    
-    // Fallback to local storage if API fails
-    const updatedClients = clients.filter(client => client.id !== id);
-    setClients(updatedClients);
-    
-    // Update localStorage
-    localStorage.setItem("clients", JSON.stringify(updatedClients));
+  const deleteClient = (id: string) => {
+    setClients(clients.filter(client => client.id !== id));
   };
 
-  const getClientByUrl = async (url: string): Promise<Client | undefined> => {
-    try {
-      setIsLoading(true);
-      console.log("Getting client by URL:", url);
-      
-      const response = await axios.get(`${API_BASE_URL}/clients.php?url=${url}`);
-      console.log("Get client by URL response:", response.data);
-      
-      if (response.data.success) {
-        // Update local state to include this client if it's not already there
-        const fetchedClient = response.data.client;
-        
-        // Check if client exists in local state and update it
-        const existingClientIndex = clients.findIndex(c => c.id === fetchedClient.id);
-        let updatedClients = [...clients];
-        
-        if (existingClientIndex >= 0) {
-          updatedClients[existingClientIndex] = fetchedClient;
-        } else {
-          // Add to local state if not found
-          updatedClients = [...clients, fetchedClient];
-        }
-        
-        setClients(updatedClients);
-        
-        // Update localStorage
-        localStorage.setItem("clients", JSON.stringify(updatedClients));
-        
-        return fetchedClient;
-      } else {
-        console.error("Failed to get client by URL:", response.data.message);
-      }
-    } catch (error) {
-      console.error("Error getting client by URL:", error);
-    } finally {
-      setIsLoading(false);
-    }
-    
-    // Fallback to local storage if API fails
+  const getClientByUrl = (url: string) => {
     return clients.find(client => client.url === url);
   };
 
-  const addTextPoint = async (clientId: string, textPoint: Omit<TextPoint, "id">) => {
-    const client = clients.find(c => c.id === clientId);
-    if (!client) return;
-    
-    const newTextPoint = { ...textPoint, id: Date.now().toString() };
-    const updatedClient = {
-      ...client,
-      textPoints: [...client.textPoints, newTextPoint]
-    };
-    
-    await updateClient(clientId, updatedClient);
+  const addTextPoint = (clientId: string, textPoint: Omit<TextPoint, "id">) => {
+    setClients(clients.map(client => {
+      if (client.id === clientId) {
+        return {
+          ...client,
+          textPoints: [
+            ...client.textPoints,
+            { ...textPoint, id: Date.now().toString() }
+          ]
+        };
+      }
+      return client;
+    }));
   };
 
-  const updateTextPoint = async (clientId: string, textPointId: string, updates: Partial<TextPoint>) => {
-    const client = clients.find(c => c.id === clientId);
-    if (!client) return;
-    
-    const updatedTextPoints = client.textPoints.map(point => 
-      point.id === textPointId ? { ...point, ...updates } : point
-    );
-    
-    await updateClient(clientId, { textPoints: updatedTextPoints });
+  const updateTextPoint = (clientId: string, textPointId: string, updates: Partial<TextPoint>) => {
+    setClients(clients.map(client => {
+      if (client.id === clientId) {
+        return {
+          ...client,
+          textPoints: client.textPoints.map(point => 
+            point.id === textPointId ? { ...point, ...updates } : point
+          )
+        };
+      }
+      return client;
+    }));
   };
 
-  const deleteTextPoint = async (clientId: string, textPointId: string) => {
-    const client = clients.find(c => c.id === clientId);
-    if (!client) return;
-    
-    const updatedTextPoints = client.textPoints.filter(point => point.id !== textPointId);
-    
-    await updateClient(clientId, { textPoints: updatedTextPoints });
+  const deleteTextPoint = (clientId: string, textPointId: string) => {
+    setClients(clients.map(client => {
+      if (client.id === clientId) {
+        return {
+          ...client,
+          textPoints: client.textPoints.filter(point => point.id !== textPointId)
+        };
+      }
+      return client;
+    }));
   };
 
   return (
@@ -388,18 +132,8 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       updateTextPoint,
       deleteTextPoint,
       currentImage,
-      setCurrentImage,
-      isLoading,
-      refreshClients
+      setCurrentImage
     }}>
-      {isLoading && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-xl flex flex-col items-center">
-            <Spinner size="lg" />
-            <p className="mt-4 text-gray-700 font-medium">Carregando...</p>
-          </div>
-        </div>
-      )}
       {children}
     </ClientContext.Provider>
   );

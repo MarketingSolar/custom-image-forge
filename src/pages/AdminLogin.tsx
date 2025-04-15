@@ -1,5 +1,5 @@
 
-import { FormEvent, useState, useEffect } from "react";
+import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -12,34 +12,30 @@ const AdminLogin = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { login, isAuthenticated, checkAuthentication } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-
-  // Check if user is already authenticated
-  useEffect(() => {
-    const checkAuth = async () => {
-      const isAuth = await checkAuthentication();
-      if (isAuth) {
-        navigate("/admin/dashboard");
-      }
-    };
-
-    checkAuth();
-  }, [checkAuthentication, navigate, isAuthenticated]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      console.log("Submitting login form with:", username);
       const success = await login(username, password);
       if (success) {
+        toast({
+          title: "Login bem-sucedido",
+          description: "Bem-vindo ao painel administrativo!",
+        });
         navigate("/admin/dashboard");
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Erro de login",
+          description: "Usuário ou senha incorretos.",
+        });
       }
     } catch (error) {
-      console.error("Login error:", error);
       toast({
         variant: "destructive",
         title: "Erro de login",
@@ -89,14 +85,7 @@ const AdminLogin = () => {
               className="w-full bg-gradient-to-r from-primary to-secondary text-white"
               disabled={isLoading}
             >
-              {isLoading ? (
-                <>
-                  <span className="mr-2">Entrando...</span>
-                  <div className="w-4 h-4 border-2 border-t-white rounded-full animate-spin"></div>
-                </>
-              ) : (
-                "Entrar"
-              )}
+              {isLoading ? "Entrando..." : "Entrar"}
             </Button>
           </form>
         </CardContent>
