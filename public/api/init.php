@@ -45,6 +45,34 @@ try {
         throw new Exception("Error creating text_points table: " . $conn->error);
     }
     
+    // Create users table if it doesn't exist
+    $sql_users = "CREATE TABLE IF NOT EXISTS users (
+        id VARCHAR(255) PRIMARY KEY,
+        username VARCHAR(255) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )";
+    
+    if (!$conn->query($sql_users)) {
+        throw new Exception("Error creating users table: " . $conn->error);
+    }
+    
+    // Check if default admin user exists, if not create one
+    $check_admin = "SELECT * FROM users WHERE username = 'admin'";
+    $admin_result = $conn->query($check_admin);
+    
+    if ($admin_result->num_rows === 0) {
+        // Create default admin user
+        $admin_id = uniqid();
+        $admin_username = 'admin';
+        $admin_password = 'admin123'; // In production, this should be hashed
+        
+        $insert_admin = "INSERT INTO users (id, username, password) VALUES (?, ?, ?)";
+        $stmt = $conn->prepare($insert_admin);
+        $stmt->bind_param("sss", $admin_id, $admin_username, $admin_password);
+        $stmt->execute();
+    }
+    
     // Commit transaction
     $conn->commit();
     

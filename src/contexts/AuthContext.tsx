@@ -16,8 +16,6 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// In a real application, you would validate against a real backend
-// For this demo, we're using localStorage and hardcoded admin
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
@@ -33,20 +31,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (username: string, password: string): Promise<boolean> => {
-    // In a real app, this would be an API call to your backend
-    if (username === "admin" && password === "admin123") {
-      const adminUser: User = {
-        id: "1",
-        username: "admin",
-        isAdmin: true,
-      };
+    try {
+      const response = await fetch('/api/auth.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
       
-      localStorage.setItem("user", JSON.stringify(adminUser));
-      setUser(adminUser);
-      setIsAuthenticated(true);
-      return true;
+      const data = await response.json();
+      
+      if (data.success) {
+        localStorage.setItem("user", JSON.stringify(data.user));
+        setUser(data.user);
+        setIsAuthenticated(true);
+        return true;
+      } else {
+        console.error("Login failed:", data.message);
+        return false;
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      return false;
     }
-    return false;
   };
 
   const logout = () => {
