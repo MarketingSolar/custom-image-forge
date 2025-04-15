@@ -37,42 +37,66 @@ try {
                     $clientId = $row['id'];
                     $textPoints = [];
                     
-                    $textPointsSql = "SELECT * FROM text_points WHERE client_id = ?";
-                    $stmt = $conn->prepare($textPointsSql);
-                    $stmt->bind_param("s", $clientId);
-                    $stmt->execute();
-                    $textPointsResult = $stmt->get_result();
+                    // Check if text_points table exists
+                    $check_table = "SHOW TABLES LIKE 'text_points'";
+                    $table_exists = $conn->query($check_table)->num_rows > 0;
                     
-                    if ($textPointsResult->num_rows > 0) {
-                        while ($textPointRow = $textPointsResult->fetch_assoc()) {
-                            // Convert font_style from JSON to array
-                            $fontStyle = json_decode($textPointRow['font_style'], true) ?: [];
-                            
-                            $textPoints[] = [
-                                'id' => $textPointRow['id'],
-                                'name' => $textPointRow['name'],
-                                'x' => (float)$textPointRow['x_position'],
-                                'y' => (float)$textPointRow['y_position'],
-                                'fontFamily' => $textPointRow['font_family'],
-                                'fontSize' => (int)$textPointRow['font_size'],
-                                'fontStyle' => $fontStyle,
-                                'color' => $textPointRow['color']
-                            ];
+                    if ($table_exists) {
+                        $textPointsSql = "SELECT * FROM text_points WHERE client_id = ?";
+                        $stmt = $conn->prepare($textPointsSql);
+                        $stmt->bind_param("s", $clientId);
+                        $stmt->execute();
+                        $textPointsResult = $stmt->get_result();
+                        
+                        if ($textPointsResult->num_rows > 0) {
+                            while ($textPointRow = $textPointsResult->fetch_assoc()) {
+                                // Convert font_style from JSON to array
+                                $fontStyle = json_decode($textPointRow['font_style'], true) ?: [];
+                                
+                                $textPoints[] = [
+                                    'id' => $textPointRow['id'],
+                                    'name' => $textPointRow['name'],
+                                    'x' => (float)$textPointRow['x_position'],
+                                    'y' => (float)$textPointRow['y_position'],
+                                    'fontFamily' => $textPointRow['font_family'],
+                                    'fontSize' => (int)$textPointRow['font_size'],
+                                    'fontStyle' => $fontStyle,
+                                    'color' => $textPointRow['color']
+                                ];
+                            }
                         }
                     }
                     
                     // Build client object
-                    $clients[] = [
+                    $client = [
                         'id' => $row['id'],
                         'name' => $row['name'],
-                        'companyName' => $row['company_name'],
                         'url' => $row['url'],
-                        'frame' => $row['frame'],
-                        'footer' => $row['footer'],
-                        'logo' => $row['logo'],
-                        'password' => $row['password'],
                         'textPoints' => $textPoints
                     ];
+                    
+                    // Add optional fields if they exist in the database
+                    if (isset($row['company_name'])) {
+                        $client['companyName'] = $row['company_name'];
+                    }
+                    
+                    if (isset($row['frame'])) {
+                        $client['frame'] = $row['frame'];
+                    }
+                    
+                    if (isset($row['footer'])) {
+                        $client['footer'] = $row['footer'];
+                    }
+                    
+                    if (isset($row['logo'])) {
+                        $client['logo'] = $row['logo'];
+                    }
+                    
+                    if (isset($row['password'])) {
+                        $client['password'] = $row['password'];
+                    }
+                    
+                    $clients[] = $client;
                 }
             }
             
@@ -87,37 +111,132 @@ try {
                 throw new Exception("Missing required fields (name, url)");
             }
             
-            // Create unique ID if not provided
+            // Initialize client data with required fields
             $id = isset($data['id']) ? $data['id'] : uniqid();
             $name = $data['name'];
-            $companyName = isset($data['companyName']) ? $data['companyName'] : null;
             $url = $data['url'];
-            $frame = isset($data['frame']) ? $data['frame'] : null;
-            $footer = isset($data['footer']) ? $data['footer'] : null;
-            $logo = isset($data['logo']) ? $data['logo'] : null;
-            $password = isset($data['password']) ? $data['password'] : null;
             
-            $sql = "INSERT INTO clients (id, name, company_name, url, frame, footer, logo, password) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-                    
+            // First, check which columns exist in the clients table
+            $columns = [];
+            $values = [];
+            $types = "";
+            $placeholders = [];
+            
+            // Add required fields
+            $columns[] = "id";
+            $values[] = $id;
+            $types .= "s";
+            $placeholders[] = "?";
+            
+            $columns[] = "name";
+            $values[] = $name;
+            $types .= "s";
+            $placeholders[] = "?";
+            
+            $columns[] = "url";
+            $values[] = $url;
+            $types .= "s";
+            $placeholders[] = "?";
+            
+            // Check for optional fields
+            if (isset($data['companyName'])) {
+                $check = "SHOW COLUMNS FROM clients LIKE 'company_name'";
+                if ($conn->query($check)->num_rows > 0) {
+                    $columns[] = "company_name";
+                    $values[] = $data['companyName'];
+                    $types .= "s";
+                    $placeholders[] = "?";
+                }
+            }
+            
+            if (isset($data['frame'])) {
+                $check = "SHOW COLUMNS FROM clients LIKE 'frame'";
+                if ($conn->query($check)->num_rows > 0) {
+                    $columns[] = "frame";
+                    $values[] = $data['frame'];
+                    $types .= "s";
+                    $placeholders[] = "?";
+                }
+            }
+            
+            if (isset($data['footer'])) {
+                $check = "SHOW COLUMNS FROM clients LIKE 'footer'";
+                if ($conn->query($check)->num_rows > 0) {
+                    $columns[] = "footer";
+                    $values[] = $data['footer'];
+                    $types .= "s";
+                    $placeholders[] = "?";
+                }
+            }
+            
+            if (isset($data['logo'])) {
+                $check = "SHOW COLUMNS FROM clients LIKE 'logo'";
+                if ($conn->query($check)->num_rows > 0) {
+                    $columns[] = "logo";
+                    $values[] = $data['logo'];
+                    $types .= "s";
+                    $placeholders[] = "?";
+                }
+            }
+            
+            if (isset($data['password'])) {
+                $check = "SHOW COLUMNS FROM clients LIKE 'password'";
+                if ($conn->query($check)->num_rows > 0) {
+                    $columns[] = "password";
+                    $values[] = $data['password'];
+                    $types .= "s";
+                    $placeholders[] = "?";
+                }
+            }
+            
+            // Build the SQL query
+            $columnsStr = implode(", ", $columns);
+            $placeholdersStr = implode(", ", $placeholders);
+            $sql = "INSERT INTO clients ($columnsStr) VALUES ($placeholdersStr)";
+            
             $stmt = $conn->prepare($sql);
-            $stmt->bind_param("ssssssss", $id, $name, $companyName, $url, $frame, $footer, $logo, $password);
+            
+            if ($stmt === false) {
+                throw new Exception("Failed to prepare statement: " . $conn->error);
+            }
+            
+            // Bind parameters dynamically
+            $stmt->bind_param($types, ...$values);
             
             if ($stmt->execute()) {
+                // Build response with all data that was actually inserted
+                $client = [
+                    'id' => $id,
+                    'name' => $name,
+                    'url' => $url,
+                ];
+                
+                if (isset($data['companyName'])) {
+                    $client['companyName'] = $data['companyName'];
+                }
+                
+                if (isset($data['frame'])) {
+                    $client['frame'] = $data['frame'];
+                }
+                
+                if (isset($data['footer'])) {
+                    $client['footer'] = $data['footer'];
+                }
+                
+                if (isset($data['logo'])) {
+                    $client['logo'] = $data['logo'];
+                }
+                
+                if (isset($data['password'])) {
+                    $client['password'] = $data['password'];
+                }
+                
+                $client['textPoints'] = [];
+                
                 echo json_encode([
                     'success' => true, 
                     'message' => 'Client added successfully',
-                    'client' => [
-                        'id' => $id,
-                        'name' => $name,
-                        'companyName' => $companyName,
-                        'url' => $url,
-                        'frame' => $frame,
-                        'footer' => $footer,
-                        'logo' => $logo,
-                        'password' => $password,
-                        'textPoints' => []
-                    ]
+                    'client' => $client
                 ]);
             } else {
                 throw new Exception("Error adding client: " . $stmt->error);
@@ -133,59 +252,72 @@ try {
             }
             
             $id = $data['id'];
-            $name = isset($data['name']) ? $data['name'] : null;
-            $companyName = isset($data['companyName']) ? $data['companyName'] : null;
-            $url = isset($data['url']) ? $data['url'] : null;
-            $frame = isset($data['frame']) ? $data['frame'] : null;
-            $footer = isset($data['footer']) ? $data['footer'] : null;
-            $logo = isset($data['logo']) ? $data['logo'] : null;
-            $password = isset($data['password']) ? $data['password'] : null;
             
             // Build dynamic update query based on provided fields
             $updateFields = [];
             $params = [];
             $types = "";
             
-            if ($name !== null) {
+            if (isset($data['name'])) {
                 $updateFields[] = "name = ?";
-                $params[] = $name;
+                $params[] = $data['name'];
                 $types .= "s";
             }
             
-            if ($companyName !== null) {
-                $updateFields[] = "company_name = ?";
-                $params[] = $companyName;
-                $types .= "s";
+            // Check if company_name column exists
+            if (isset($data['companyName'])) {
+                $check = "SHOW COLUMNS FROM clients LIKE 'company_name'";
+                if ($conn->query($check)->num_rows > 0) {
+                    $updateFields[] = "company_name = ?";
+                    $params[] = $data['companyName'];
+                    $types .= "s";
+                }
             }
             
-            if ($url !== null) {
+            if (isset($data['url'])) {
                 $updateFields[] = "url = ?";
-                $params[] = $url;
+                $params[] = $data['url'];
                 $types .= "s";
             }
             
-            if ($frame !== null) {
-                $updateFields[] = "frame = ?";
-                $params[] = $frame;
-                $types .= "s";
+            // Check if frame column exists
+            if (isset($data['frame'])) {
+                $check = "SHOW COLUMNS FROM clients LIKE 'frame'";
+                if ($conn->query($check)->num_rows > 0) {
+                    $updateFields[] = "frame = ?";
+                    $params[] = $data['frame'];
+                    $types .= "s";
+                }
             }
             
-            if ($footer !== null) {
-                $updateFields[] = "footer = ?";
-                $params[] = $footer;
-                $types .= "s";
+            // Check if footer column exists
+            if (isset($data['footer'])) {
+                $check = "SHOW COLUMNS FROM clients LIKE 'footer'";
+                if ($conn->query($check)->num_rows > 0) {
+                    $updateFields[] = "footer = ?";
+                    $params[] = $data['footer'];
+                    $types .= "s";
+                }
             }
             
-            if ($logo !== null) {
-                $updateFields[] = "logo = ?";
-                $params[] = $logo;
-                $types .= "s";
+            // Check if logo column exists
+            if (isset($data['logo'])) {
+                $check = "SHOW COLUMNS FROM clients LIKE 'logo'";
+                if ($conn->query($check)->num_rows > 0) {
+                    $updateFields[] = "logo = ?";
+                    $params[] = $data['logo'];
+                    $types .= "s";
+                }
             }
             
-            if ($password !== null) {
-                $updateFields[] = "password = ?";
-                $params[] = $password;
-                $types .= "s";
+            // Check if password column exists
+            if (isset($data['password'])) {
+                $check = "SHOW COLUMNS FROM clients LIKE 'password'";
+                if ($conn->query($check)->num_rows > 0) {
+                    $updateFields[] = "password = ?";
+                    $params[] = $data['password'];
+                    $types .= "s";
+                }
             }
             
             if (empty($updateFields)) {
@@ -198,6 +330,11 @@ try {
             $types .= "s";
             
             $stmt = $conn->prepare($sql);
+            
+            if ($stmt === false) {
+                throw new Exception("Failed to prepare statement: " . $conn->error);
+            }
+            
             $stmt->bind_param($types, ...$params);
             
             if ($stmt->execute()) {
@@ -221,11 +358,17 @@ try {
             $conn->begin_transaction();
             
             try {
-                // Delete text points
-                $sql1 = "DELETE FROM text_points WHERE client_id = ?";
-                $stmt1 = $conn->prepare($sql1);
-                $stmt1->bind_param("s", $id);
-                $stmt1->execute();
+                // Check if text_points table exists before trying to delete from it
+                $check_table = "SHOW TABLES LIKE 'text_points'";
+                $table_exists = $conn->query($check_table)->num_rows > 0;
+                
+                if ($table_exists) {
+                    // Delete text points
+                    $sql1 = "DELETE FROM text_points WHERE client_id = ?";
+                    $stmt1 = $conn->prepare($sql1);
+                    $stmt1->bind_param("s", $id);
+                    $stmt1->execute();
+                }
                 
                 // Delete client
                 $sql2 = "DELETE FROM clients WHERE id = ?";

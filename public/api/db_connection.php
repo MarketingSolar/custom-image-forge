@@ -39,4 +39,22 @@ function get_json_post_data() {
     
     return $data;
 }
+
+// Helper function to check and fix foreign key constraints
+function check_foreign_key_constraints() {
+    global $conn;
+    
+    // Check if foreign key checks are enabled
+    $result = $conn->query("SELECT @@foreign_key_checks");
+    $row = $result->fetch_row();
+    $foreign_key_checks = $row[0];
+    
+    // If foreign key checks are disabled, enable them
+    if ($foreign_key_checks == 0) {
+        $conn->query("SET foreign_key_checks = 1");
+        error_log("Foreign key checks were disabled, now enabled");
+    }
+    
+    return true;
+}
 ?>
