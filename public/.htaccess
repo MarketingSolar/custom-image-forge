@@ -1,43 +1,26 @@
 
+# Enable PHP execution
+AddHandler application/x-httpd-php .php
+
+# Rewrite rules for SPA
 <IfModule mod_rewrite.c>
-  RewriteEngine On
-  RewriteBase /
-  
-  # Allow direct access to the API folder
-  RewriteCond %{REQUEST_URI} ^/api/ [NC]
-  RewriteRule ^ - [L]
-  
-  # If the file or directory doesn't exist
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
-  
-  # Redirect everything else to index.html
-  RewriteRule ^ index.html [L]
+    RewriteEngine On
+    RewriteBase /
+    
+    # Exclude API folder from SPA rewrite rules
+    RewriteRule ^api/ - [L]
+    
+    # If the request is for a real file or directory, serve it
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+    
+    # Otherwise, redirect to index.html
+    RewriteRule ^ index.html [L]
 </IfModule>
 
-# Set proper MIME types
-<IfModule mod_mime.c>
-  AddType application/javascript .js
-  AddType text/css .css
-  AddType application/json .json
-</IfModule>
-
-# Enable CORS
+# Set security headers
 <IfModule mod_headers.c>
-  <FilesMatch "\.(php)$">
-    Header set Access-Control-Allow-Origin "*"
-    Header set Access-Control-Allow-Methods "GET, POST, OPTIONS"
-    Header set Access-Control-Allow-Headers "Content-Type"
-  </FilesMatch>
-</IfModule>
-
-# PHP settings
-<IfModule mod_php7.c>
-  php_flag display_errors On
-  php_value error_reporting E_ALL
-</IfModule>
-
-<IfModule mod_php8.c>
-  php_flag display_errors On
-  php_value error_reporting E_ALL
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-XSS-Protection "1; mode=block"
 </IfModule>

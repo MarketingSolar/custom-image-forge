@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 
 export type TextPoint = {
@@ -42,45 +41,67 @@ type ClientContextType = {
 
 const ClientContext = createContext<ClientContextType | undefined>(undefined);
 
-// DB connection settings
-const DB_CONFIG = {
-  host: "srv1066.hstgr.io",
-  database: "u961166301_moldura",
-  user: "u961166301_moldura",
-  password: "@Moldura123"
-};
-
 export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [clients, setClients] = useState<Client[]>([]);
   const [currentImage, setCurrentImage] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Function to fetch clients from the database
   const fetchClients = async () => {
     setLoading(true);
     setError(null);
     
     try {
-      const response = await fetch('/api/clients.php?action=list');
+      const storedClients = localStorage.getItem("clients");
+      let localClients: Client[] = [];
+      
+      if (storedClients) {
+        try {
+          localClients = JSON.parse(storedClients);
+        } catch (e) {
+          console.error("Error parsing stored clients:", e);
+        }
+      }
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
+      const response = await fetch('/api/clients.php?action=list', {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
       
-      const data = await response.json();
-      console.log("Fetched clients:", data);
+      const responseText = await response.text();
+      
+      if (responseText.trim().startsWith('<?php')) {
+        throw new Error("PHP code returned instead of being executed. Server configuration issue detected.");
+      }
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (err) {
+        console.error("Failed to parse JSON:", responseText);
+        throw new Error("Invalid JSON response from server");
+      }
       
       if (Array.isArray(data)) {
         setClients(data);
+        localStorage.setItem("clients", JSON.stringify(data));
       } else {
         console.error("Expected array of clients but got:", data);
-        setClients([]);
+        setClients(localClients.length > 0 ? localClients : []);
+        throw new Error("Unexpected data format received from server");
       }
     } catch (err) {
       console.error("Failed to fetch clients:", err);
       setError(`Failed to fetch clients: ${err instanceof Error ? err.message : String(err)}`);
-      // Fallback to localStorage if API fails
+      
       const storedClients = localStorage.getItem("clients");
       if (storedClients) {
         try {
@@ -94,12 +115,10 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  // Initial load
   useEffect(() => {
     fetchClients();
   }, []);
 
-  // Save to localStorage as backup whenever clients change
   useEffect(() => {
     localStorage.setItem("clients", JSON.stringify(clients));
   }, [clients]);
@@ -127,15 +146,21 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         body: JSON.stringify(newClient),
       });
       
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
+      const responseText = await response.text();
+      
+      if (responseText.trim().startsWith('<?php')) {
+        throw new Error("PHP code returned instead of being executed. Server configuration issue detected.");
       }
       
-      const result = await response.json();
-      console.log("Add client result:", result);
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (err) {
+        console.error("Failed to parse JSON:", responseText);
+        throw new Error("Invalid JSON response from server");
+      }
       
       if (result.success) {
-        // Update local state with the new client including any server-generated ID
         const updatedClient = result.client || newClient;
         setClients(prevClients => [...prevClients, updatedClient]);
       } else {
@@ -145,7 +170,6 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.error("Error adding client:", err);
       setError(`Error adding client: ${err instanceof Error ? err.message : String(err)}`);
       
-      // Fallback to localStorage if API fails
       const newClient = { 
         ...client, 
         id: Date.now().toString(),
@@ -195,7 +219,6 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.error("Error updating client:", err);
       setError(`Error updating client: ${err instanceof Error ? err.message : String(err)}`);
       
-      // Fallback to localStorage if API fails
       setClients(prevClients => 
         prevClients.map(client => client.id === id ? { ...client, ...updates } : client)
       );
@@ -233,7 +256,6 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.error("Error deleting client:", err);
       setError(`Error deleting client: ${err instanceof Error ? err.message : String(err)}`);
       
-      // Fallback to localStorage if API fails
       setClients(prevClients => prevClients.filter(client => client.id !== id));
     } finally {
       setLoading(false);
@@ -283,7 +305,6 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.error("Error adding text point:", err);
       setError(`Error adding text point: ${err instanceof Error ? err.message : String(err)}`);
       
-      // Fallback to localStorage if API fails
       const newTextPoint = { ...textPoint, id: Date.now().toString() };
       setClients(prevClients => prevClients.map(client => {
         if (client.id === clientId) {
@@ -350,7 +371,6 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.error("Error updating text point:", err);
       setError(`Error updating text point: ${err instanceof Error ? err.message : String(err)}`);
       
-      // Fallback to localStorage if API fails
       setClients(prevClients => prevClients.map(client => {
         if (client.id === clientId) {
           return {
@@ -404,7 +424,6 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.error("Error deleting text point:", err);
       setError(`Error deleting text point: ${err instanceof Error ? err.message : String(err)}`);
       
-      // Fallback to localStorage if API fails
       setClients(prevClients => prevClients.map(client => {
         if (client.id === clientId) {
           return {

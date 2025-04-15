@@ -15,7 +15,7 @@ require_once 'db_connection.php';
 
 try {
     // Get the JSON data from the request
-    $data = get_json_post_data();
+    $data = json_decode(file_get_contents('php://input'), true);
     
     // Check if username and password are provided
     if (!isset($data['username']) || !isset($data['password'])) {
