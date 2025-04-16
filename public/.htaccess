@@ -28,9 +28,11 @@ AddHandler application/x-httpd-php .php
     Header set X-XSS-Protection "1; mode=block"
 </IfModule>
 
-# Enable directory creation for molduras folder
+# Create directory structure for molduras
 <Directory "molduras">
     Options +FollowSymLinks
     AllowOverride All
+    Order allow,deny
+    Allow from all
     Require all granted
 </Directory>

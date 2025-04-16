@@ -25,6 +25,7 @@ const ClientConfig = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [draggedPoint, setDraggedPoint] = useState<string | null>(null);
   const [newPoint, setNewPoint] = useState<Partial<TextPoint> | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const fontFamilies = ["Arial", "Helvetica", "Times New Roman", "Courier New", "Georgia", "Verdana"];
   const fontSizes = [8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 42, 48, 60, 72];
@@ -63,9 +64,12 @@ const ClientConfig = () => {
   }, [clientId, clients, navigate]);
 
   // Handle file uploads
-  const handleFileUpload = (type: 'frame', file: File) => {
+  const handleFileUpload = async (type: 'frame', file: File) => {
     if (!client) return;
     
+    setIsUploading(true);
+    
+    // First, read file to show local preview
     const reader = new FileReader();
     reader.onload = (e) => {
       const dataUrl = e.target?.result as string;
@@ -75,6 +79,43 @@ const ClientConfig = () => {
       }
     };
     reader.readAsDataURL(file);
+    
+    // Now upload the file to the server
+    try {
+      const formData = new FormData();
+      formData.append('frame', file);
+      formData.append('clientUrl', client.url);
+      
+      const response = await fetch('/api/upload_frame.php', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // Update the client with the new frame URL from server
+        updateClient(client.id, {
+          frame: result.frameUrl
+        });
+        
+        toast({
+          title: "Imagem enviada",
+          description: "A moldura foi enviada com sucesso e está disponível no servidor."
+        });
+      } else {
+        throw new Error(result.message || "Falha ao enviar a moldura");
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao enviar",
+        description: "Não foi possível enviar a moldura para o servidor. Por favor, tente novamente."
+      });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleSaveChanges = () => {
@@ -252,6 +293,7 @@ const ClientConfig = () => {
         <Button 
           onClick={handleSaveChanges}
           className="bg-primary text-white"
+          disabled={isUploading}
         >
           <Save className="mr-2 h-5 w-5" /> Salvar Alterações
         </Button>
@@ -281,7 +323,11 @@ const ClientConfig = () => {
                         handleFileUpload('frame', files[0]);
                       }
                     }}
+                    disabled={isUploading}
                   />
+                  {isUploading && (
+                    <div className="text-sm text-blue-600">Enviando imagem...</div>
+                  )}
                 </div>
                 {framePreview && (
                   <div className="aspect-square border rounded-md overflow-hidden">

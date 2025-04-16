@@ -1,5 +1,7 @@
 
 <?php
+// This file contains the necessary code to handle client-related operations
+
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
@@ -13,385 +15,364 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once 'db_connection.php';
 
-// For debugging
-error_log("clients.php accessed: " . $_SERVER['REQUEST_METHOD'] . " " . $_GET['action']);
+// Get action from query string
+$action = isset($_GET['action']) ? $_GET['action'] : "";
 
-// Get action from request
-$action = isset($_GET['action']) ? $_GET['action'] : '';
-
+// Handle different actions based on the action parameter
 try {
     switch ($action) {
         case 'list':
-            // List all clients
-            $clients = [];
-            $sql = "SELECT * FROM clients";
-            $result = $conn->query($sql);
-            
-            if ($result === false) {
-                throw new Exception("Database error: " . $conn->error);
-            }
-            
-            if ($result->num_rows > 0) {
-                while ($row = $result->fetch_assoc()) {
-                    // Get text points for this client
-                    $clientId = $row['id'];
-                    $textPoints = [];
-                    
-                    // Check if text_points table exists
-                    $check_table = "SHOW TABLES LIKE 'text_points'";
-                    $table_exists = $conn->query($check_table)->num_rows > 0;
-                    
-                    if ($table_exists) {
-                        $textPointsSql = "SELECT * FROM text_points WHERE client_id = ?";
-                        $stmt = $conn->prepare($textPointsSql);
-                        $stmt->bind_param("s", $clientId);
-                        $stmt->execute();
-                        $textPointsResult = $stmt->get_result();
-                        
-                        if ($textPointsResult->num_rows > 0) {
-                            while ($textPointRow = $textPointsResult->fetch_assoc()) {
-                                // Convert font_style from JSON to array
-                                $fontStyle = json_decode($textPointRow['font_style'], true) ?: [];
-                                
-                                $textPoints[] = [
-                                    'id' => $textPointRow['id'],
-                                    'name' => $textPointRow['name'],
-                                    'x' => (float)$textPointRow['x_position'],
-                                    'y' => (float)$textPointRow['y_position'],
-                                    'fontFamily' => $textPointRow['font_family'],
-                                    'fontSize' => (int)$textPointRow['font_size'],
-                                    'fontStyle' => $fontStyle,
-                                    'color' => $textPointRow['color']
-                                ];
-                            }
-                        }
-                    }
-                    
-                    // Build client object
-                    $client = [
-                        'id' => $row['id'],
-                        'name' => $row['name'],
-                        'url' => $row['url'],
-                        'textPoints' => $textPoints
-                    ];
-                    
-                    // Add optional fields if they exist in the database
-                    if (isset($row['company_name'])) {
-                        $client['companyName'] = $row['company_name'];
-                    }
-                    
-                    if (isset($row['frame'])) {
-                        $client['frame'] = $row['frame'];
-                    }
-                    
-                    if (isset($row['footer'])) {
-                        $client['footer'] = $row['footer'];
-                    }
-                    
-                    if (isset($row['logo'])) {
-                        $client['logo'] = $row['logo'];
-                    }
-                    
-                    if (isset($row['password'])) {
-                        $client['password'] = $row['password'];
-                    }
-                    
-                    $clients[] = $client;
-                }
-            }
-            
-            echo json_encode($clients);
+            listClients($conn);
             break;
-            
         case 'add':
-            // Add a new client
-            $data = get_json_post_data();
-            
-            if (!isset($data['name']) || !isset($data['url'])) {
-                throw new Exception("Missing required fields (name, url)");
-            }
-            
-            // Initialize client data with required fields
-            $id = isset($data['id']) ? $data['id'] : uniqid();
-            $name = $data['name'];
-            $url = $data['url'];
-            
-            // First, check which columns exist in the clients table
-            $columns = [];
-            $values = [];
-            $types = "";
-            $placeholders = [];
-            
-            // Add required fields
-            $columns[] = "id";
-            $values[] = $id;
-            $types .= "s";
-            $placeholders[] = "?";
-            
-            $columns[] = "name";
-            $values[] = $name;
-            $types .= "s";
-            $placeholders[] = "?";
-            
-            $columns[] = "url";
-            $values[] = $url;
-            $types .= "s";
-            $placeholders[] = "?";
-            
-            // Check for optional fields
-            if (isset($data['companyName'])) {
-                $check = "SHOW COLUMNS FROM clients LIKE 'company_name'";
-                if ($conn->query($check)->num_rows > 0) {
-                    $columns[] = "company_name";
-                    $values[] = $data['companyName'];
-                    $types .= "s";
-                    $placeholders[] = "?";
-                }
-            }
-            
-            if (isset($data['frame'])) {
-                $check = "SHOW COLUMNS FROM clients LIKE 'frame'";
-                if ($conn->query($check)->num_rows > 0) {
-                    $columns[] = "frame";
-                    $values[] = $data['frame'];
-                    $types .= "s";
-                    $placeholders[] = "?";
-                }
-            }
-            
-            if (isset($data['footer'])) {
-                $check = "SHOW COLUMNS FROM clients LIKE 'footer'";
-                if ($conn->query($check)->num_rows > 0) {
-                    $columns[] = "footer";
-                    $values[] = $data['footer'];
-                    $types .= "s";
-                    $placeholders[] = "?";
-                }
-            }
-            
-            if (isset($data['logo'])) {
-                $check = "SHOW COLUMNS FROM clients LIKE 'logo'";
-                if ($conn->query($check)->num_rows > 0) {
-                    $columns[] = "logo";
-                    $values[] = $data['logo'];
-                    $types .= "s";
-                    $placeholders[] = "?";
-                }
-            }
-            
-            if (isset($data['password'])) {
-                $check = "SHOW COLUMNS FROM clients LIKE 'password'";
-                if ($conn->query($check)->num_rows > 0) {
-                    $columns[] = "password";
-                    $values[] = $data['password'];
-                    $types .= "s";
-                    $placeholders[] = "?";
-                }
-            }
-            
-            // Build the SQL query
-            $columnsStr = implode(", ", $columns);
-            $placeholdersStr = implode(", ", $placeholders);
-            $sql = "INSERT INTO clients ($columnsStr) VALUES ($placeholdersStr)";
-            
-            $stmt = $conn->prepare($sql);
-            
-            if ($stmt === false) {
-                throw new Exception("Failed to prepare statement: " . $conn->error);
-            }
-            
-            // Bind parameters dynamically
-            $stmt->bind_param($types, ...$values);
-            
-            if ($stmt->execute()) {
-                // Build response with all data that was actually inserted
-                $client = [
-                    'id' => $id,
-                    'name' => $name,
-                    'url' => $url,
-                ];
-                
-                if (isset($data['companyName'])) {
-                    $client['companyName'] = $data['companyName'];
-                }
-                
-                if (isset($data['frame'])) {
-                    $client['frame'] = $data['frame'];
-                }
-                
-                if (isset($data['footer'])) {
-                    $client['footer'] = $data['footer'];
-                }
-                
-                if (isset($data['logo'])) {
-                    $client['logo'] = $data['logo'];
-                }
-                
-                if (isset($data['password'])) {
-                    $client['password'] = $data['password'];
-                }
-                
-                $client['textPoints'] = [];
-                
-                echo json_encode([
-                    'success' => true, 
-                    'message' => 'Client added successfully',
-                    'client' => $client
-                ]);
-            } else {
-                throw new Exception("Error adding client: " . $stmt->error);
-            }
+            addClient($conn);
             break;
-            
         case 'update':
-            // Update an existing client
-            $data = get_json_post_data();
-            
-            if (!isset($data['id'])) {
-                throw new Exception("Missing client ID");
-            }
-            
-            $id = $data['id'];
-            
-            // Build dynamic update query based on provided fields
-            $updateFields = [];
-            $params = [];
-            $types = "";
-            
-            if (isset($data['name'])) {
-                $updateFields[] = "name = ?";
-                $params[] = $data['name'];
-                $types .= "s";
-            }
-            
-            // Check if company_name column exists
-            if (isset($data['companyName'])) {
-                $check = "SHOW COLUMNS FROM clients LIKE 'company_name'";
-                if ($conn->query($check)->num_rows > 0) {
-                    $updateFields[] = "company_name = ?";
-                    $params[] = $data['companyName'];
-                    $types .= "s";
-                }
-            }
-            
-            if (isset($data['url'])) {
-                $updateFields[] = "url = ?";
-                $params[] = $data['url'];
-                $types .= "s";
-            }
-            
-            // Check if frame column exists
-            if (isset($data['frame'])) {
-                $check = "SHOW COLUMNS FROM clients LIKE 'frame'";
-                if ($conn->query($check)->num_rows > 0) {
-                    $updateFields[] = "frame = ?";
-                    $params[] = $data['frame'];
-                    $types .= "s";
-                }
-            }
-            
-            // Check if footer column exists
-            if (isset($data['footer'])) {
-                $check = "SHOW COLUMNS FROM clients LIKE 'footer'";
-                if ($conn->query($check)->num_rows > 0) {
-                    $updateFields[] = "footer = ?";
-                    $params[] = $data['footer'];
-                    $types .= "s";
-                }
-            }
-            
-            // Check if logo column exists
-            if (isset($data['logo'])) {
-                $check = "SHOW COLUMNS FROM clients LIKE 'logo'";
-                if ($conn->query($check)->num_rows > 0) {
-                    $updateFields[] = "logo = ?";
-                    $params[] = $data['logo'];
-                    $types .= "s";
-                }
-            }
-            
-            // Check if password column exists
-            if (isset($data['password'])) {
-                $check = "SHOW COLUMNS FROM clients LIKE 'password'";
-                if ($conn->query($check)->num_rows > 0) {
-                    $updateFields[] = "password = ?";
-                    $params[] = $data['password'];
-                    $types .= "s";
-                }
-            }
-            
-            if (empty($updateFields)) {
-                echo json_encode(['success' => true, 'message' => 'No fields to update']);
-                break;
-            }
-            
-            $sql = "UPDATE clients SET " . implode(", ", $updateFields) . " WHERE id = ?";
-            $params[] = $id;
-            $types .= "s";
-            
-            $stmt = $conn->prepare($sql);
-            
-            if ($stmt === false) {
-                throw new Exception("Failed to prepare statement: " . $conn->error);
-            }
-            
-            $stmt->bind_param($types, ...$params);
-            
-            if ($stmt->execute()) {
-                echo json_encode(['success' => true, 'message' => 'Client updated successfully']);
-            } else {
-                throw new Exception("Error updating client: " . $stmt->error);
-            }
+            updateClient($conn);
             break;
-            
         case 'delete':
-            // Delete a client
-            $data = get_json_post_data();
-            
-            if (!isset($data['id'])) {
-                throw new Exception("Missing client ID");
-            }
-            
-            $id = $data['id'];
-            
-            // Start transaction
-            $conn->begin_transaction();
-            
-            try {
-                // Check if text_points table exists before trying to delete from it
-                $check_table = "SHOW TABLES LIKE 'text_points'";
-                $table_exists = $conn->query($check_table)->num_rows > 0;
-                
-                if ($table_exists) {
-                    // Delete text points
-                    $sql1 = "DELETE FROM text_points WHERE client_id = ?";
-                    $stmt1 = $conn->prepare($sql1);
-                    $stmt1->bind_param("s", $id);
-                    $stmt1->execute();
-                }
-                
-                // Delete client
-                $sql2 = "DELETE FROM clients WHERE id = ?";
-                $stmt2 = $conn->prepare($sql2);
-                $stmt2->bind_param("s", $id);
-                $stmt2->execute();
-                
-                $conn->commit();
-                echo json_encode(['success' => true, 'message' => 'Client deleted successfully']);
-            } catch (Exception $e) {
-                $conn->rollback();
-                throw new Exception("Error deleting client: " . $e->getMessage());
-            }
+            deleteClient($conn);
             break;
-            
+        case 'prepare_directory':
+            prepareDirectory();
+            break;
         default:
-            throw new Exception("Invalid action");
+            throw new Exception("Invalid action specified");
     }
 } catch (Exception $e) {
-    error_log("ERROR in clients.php: " . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    echo json_encode([
+        'success' => false,
+        'message' => $e->getMessage()
+    ]);
 }
 
 $conn->close();
-?>
+
+// Function to list all clients
+function listClients($conn) {
+    $sql = "SELECT 
+                id, name, url, company_name as companyName, logo, frame, footer, password
+            FROM clients";
+    $result = $conn->query($sql);
+    
+    if (!$result) {
+        throw new Exception("Database query failed: " . $conn->error);
+    }
+    
+    $clients = [];
+    while ($row = $result->fetch_assoc()) {
+        // Convert numeric ID to string for consistency with frontend
+        $row['id'] = (string)$row['id'];
+        
+        // Get text points for this client
+        $textPointsSql = "SELECT 
+                            id, name, x, y, font_family as fontFamily, 
+                            font_size as fontSize, font_style as fontStyle, color
+                          FROM text_points 
+                          WHERE client_id = ?";
+        $stmt = $conn->prepare($textPointsSql);
+        $clientId = $row['id'];
+        $stmt->bind_param("s", $clientId);
+        $stmt->execute();
+        $textPointsResult = $stmt->get_result();
+        
+        $textPoints = [];
+        while ($textPointRow = $textPointsResult->fetch_assoc()) {
+            // Convert font_style from string to array
+            $textPointRow['fontStyle'] = $textPointRow['fontStyle'] ? explode(',', $textPointRow['fontStyle']) : [];
+            
+            // Convert numeric values to proper types
+            $textPointRow['x'] = (float)$textPointRow['x'];
+            $textPointRow['y'] = (float)$textPointRow['y'];
+            $textPointRow['fontSize'] = (int)$textPointRow['fontSize'];
+            
+            $textPoints[] = $textPointRow;
+        }
+        
+        $row['textPoints'] = $textPoints;
+        $clients[] = $row;
+    }
+    
+    echo json_encode($clients);
+}
+
+// Function to add a new client
+function addClient($conn) {
+    // Get input JSON
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    // Validate required fields
+    if (!isset($data['name']) || !isset($data['url'])) {
+        throw new Exception("Name and URL are required fields");
+    }
+    
+    // Check if client with same URL already exists
+    $checkSql = "SELECT id FROM clients WHERE url = ?";
+    $checkStmt = $conn->prepare($checkSql);
+    $checkStmt->bind_param("s", $data['url']);
+    $checkStmt->execute();
+    $checkResult = $checkStmt->get_result();
+    
+    if ($checkResult->num_rows > 0) {
+        throw new Exception("A client with this URL already exists");
+    }
+    
+    // Insert new client
+    $sql = "INSERT INTO clients (name, url, company_name, logo, frame, footer, password) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)";
+    $stmt = $conn->prepare($sql);
+    
+    $name = $data['name'];
+    $url = $data['url'];
+    $companyName = isset($data['companyName']) ? $data['companyName'] : null;
+    $logo = isset($data['logo']) ? $data['logo'] : null;
+    $frame = isset($data['frame']) ? $data['frame'] : null;
+    $footer = isset($data['footer']) ? $data['footer'] : null;
+    $password = isset($data['password']) ? $data['password'] : null;
+    
+    $stmt->bind_param("sssssss", $name, $url, $companyName, $logo, $frame, $footer, $password);
+    $stmt->execute();
+    
+    if ($stmt->affected_rows <= 0) {
+        throw new Exception("Failed to add client: " . $stmt->error);
+    }
+    
+    $newClientId = $stmt->insert_id;
+    
+    // Create necessary directories
+    createClientDirectory($url);
+    
+    // Return success with the client ID
+    echo json_encode([
+        'success' => true,
+        'message' => 'Client added successfully',
+        'clientId' => (string)$newClientId
+    ]);
+}
+
+// Function to update an existing client
+function updateClient($conn) {
+    // Get input JSON
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    // Validate required fields
+    if (!isset($data['id'])) {
+        throw new Exception("Client ID is required");
+    }
+    
+    // Check if client exists
+    $checkSql = "SELECT url FROM clients WHERE id = ?";
+    $checkStmt = $conn->prepare($checkSql);
+    $checkStmt->bind_param("s", $data['id']);
+    $checkStmt->execute();
+    $checkResult = $checkStmt->get_result();
+    
+    if ($checkResult->num_rows <= 0) {
+        throw new Exception("Client not found");
+    }
+    
+    $clientRow = $checkResult->fetch_assoc();
+    $oldUrl = $clientRow['url'];
+    
+    // Prepare update SQL
+    $sql = "UPDATE clients SET 
+                name = ?, 
+                url = ?, 
+                company_name = ?, 
+                logo = ?";
+    
+    // Add conditional fields to update
+    if (isset($data['frame'])) {
+        $sql .= ", frame = ?";
+    }
+    
+    if (isset($data['footer'])) {
+        $sql .= ", footer = ?";
+    }
+    
+    if (isset($data['password'])) {
+        $sql .= ", password = ?";
+    }
+    
+    $sql .= " WHERE id = ?";
+    
+    // Prepare and bind parameters
+    $stmt = $conn->prepare($sql);
+    
+    $name = $data['name'];
+    $url = $data['url'];
+    $companyName = isset($data['companyName']) ? $data['companyName'] : null;
+    $logo = isset($data['logo']) ? $data['logo'] : null;
+    
+    // Create parameter array and types
+    $paramTypes = "ssss";
+    $params = [$name, $url, $companyName, $logo];
+    
+    // Add conditional parameters
+    if (isset($data['frame'])) {
+        $paramTypes .= "s";
+        $params[] = $data['frame'];
+    }
+    
+    if (isset($data['footer'])) {
+        $paramTypes .= "s";
+        $params[] = $data['footer'];
+    }
+    
+    if (isset($data['password'])) {
+        $paramTypes .= "s";
+        $params[] = $data['password'];
+    }
+    
+    // Add ID parameter
+    $paramTypes .= "s";
+    $params[] = $data['id'];
+    
+    // Bind all parameters
+    $stmt->bind_param($paramTypes, ...$params);
+    
+    $stmt->execute();
+    
+    // Check if the URL has changed and rename the directory if needed
+    if ($oldUrl !== $url) {
+        renameClientDirectory($oldUrl, $url);
+    } else {
+        // Ensure the directory exists
+        createClientDirectory($url);
+    }
+    
+    echo json_encode([
+        'success' => true,
+        'message' => 'Client updated successfully'
+    ]);
+}
+
+// Function to delete a client
+function deleteClient($conn) {
+    // Get input JSON
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    // Validate required fields
+    if (!isset($data['id'])) {
+        throw new Exception("Client ID is required");
+    }
+    
+    // Get client URL before deleting (for directory removal)
+    $urlSql = "SELECT url FROM clients WHERE id = ?";
+    $urlStmt = $conn->prepare($urlSql);
+    $urlStmt->bind_param("s", $data['id']);
+    $urlStmt->execute();
+    $urlResult = $urlStmt->get_result();
+    
+    if ($urlResult->num_rows > 0) {
+        $clientRow = $urlResult->fetch_assoc();
+        $clientUrl = $clientRow['url'];
+        
+        // Delete associated text points first
+        $deleteTextPointsSql = "DELETE FROM text_points WHERE client_id = ?";
+        $deleteTextPointsStmt = $conn->prepare($deleteTextPointsSql);
+        $deleteTextPointsStmt->bind_param("s", $data['id']);
+        $deleteTextPointsStmt->execute();
+        
+        // Now delete the client
+        $sql = "DELETE FROM clients WHERE id = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("s", $data['id']);
+        $stmt->execute();
+        
+        if ($stmt->affected_rows <= 0) {
+            throw new Exception("Failed to delete client: " . $stmt->error);
+        }
+        
+        // Try to remove client directory
+        removeClientDirectory($clientUrl);
+        
+        echo json_encode([
+            'success' => true,
+            'message' => 'Client deleted successfully'
+        ]);
+    } else {
+        throw new Exception("Client not found");
+    }
+}
+
+// Function to prepare directory for a client
+function prepareDirectory() {
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    if (!isset($data['clientUrl'])) {
+        throw new Exception("Client URL is required");
+    }
+    
+    $clientUrl = $data['clientUrl'];
+    
+    try {
+        createClientDirectory($clientUrl);
+        echo json_encode([
+            'success' => true,
+            'message' => 'Client directory prepared successfully'
+        ]);
+    } catch (Exception $e) {
+        echo json_encode([
+            'success' => false,
+            'message' => $e->getMessage()
+        ]);
+    }
+}
+
+// Helper function to create directory for a client
+function createClientDirectory($clientUrl) {
+    $baseDir = "../molduras";
+    
+    // Create base directory if it doesn't exist
+    if (!file_exists($baseDir)) {
+        if (!mkdir($baseDir, 0755, true)) {
+            throw new Exception("Failed to create base directory");
+        }
+    }
+    
+    // Create client directory
+    $clientDir = "$baseDir/$clientUrl";
+    if (!file_exists($clientDir)) {
+        if (!mkdir($clientDir, 0755, true)) {
+            throw new Exception("Failed to create client directory");
+        }
+    }
+    
+    return true;
+}
+
+// Helper function to rename client directory
+function renameClientDirectory($oldUrl, $newUrl) {
+    $baseDir = "../molduras";
+    $oldClientDir = "$baseDir/$oldUrl";
+    $newClientDir = "$baseDir/$newUrl";
+    
+    if (file_exists($oldClientDir)) {
+        if (!rename($oldClientDir, $newClientDir)) {
+            // If rename fails, create new directory but don't throw error
+            createClientDirectory($newUrl);
+        }
+    } else {
+        // If old directory doesn't exist, create new one
+        createClientDirectory($newUrl);
+    }
+    
+    return true;
+}
+
+// Helper function to remove client directory
+function removeClientDirectory($clientUrl) {
+    $baseDir = "../molduras";
+    $clientDir = "$baseDir/$clientUrl";
+    
+    if (file_exists($clientDir)) {
+        // Simple directory deletion - in a production environment,
+        // you might want a more robust directory removal function
+        array_map('unlink', glob("$clientDir/*.*"));
+        rmdir($clientDir);
+    }
+    
+    return true;
+}

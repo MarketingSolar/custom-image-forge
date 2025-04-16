@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { useParams, useLocation, Navigate } from "react-router-dom";
 import { useClient, Client, TextPoint } from "@/contexts/ClientContext";
@@ -27,6 +28,7 @@ const ClientPreview = () => {
   const [clientPassword, setClientPassword] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isClientFound, setIsClientFound] = useState(true);
+  const [isCheckingClient, setIsCheckingClient] = useState(true);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageCanvasRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -37,10 +39,48 @@ const ClientPreview = () => {
       if (!clientUrl) {
         setIsClientFound(false);
         setIsLoading(false);
+        setIsCheckingClient(false);
         return;
       }
       
       try {
+        // First check localStorage for this client
+        const localClient = getClientByUrl(clientUrl);
+        if (localClient) {
+          setIsClientFound(true);
+          setClient(localClient);
+          
+          // Initialize text values
+          const initialValues: TextInputValue = {};
+          localClient.textPoints.forEach(point => {
+            initialValues[point.id] = "";
+          });
+          setTextValues(initialValues);
+          
+          // Check for authentication
+          const storedAuth = localStorage.getItem(`client_auth_${clientUrl}`);
+          if (storedAuth === "true") {
+            setIsAuthenticated(true);
+          } else if (!localClient.password) {
+            // Auto-authenticate if no password is required
+            setIsAuthenticated(true);
+            localStorage.setItem(`client_auth_${clientUrl}`, "true");
+          } else if (location.state?.password) {
+            // Check password from state if provided
+            const passedPassword = location.state.password;
+            if (passedPassword === localClient.password) {
+              setIsAuthenticated(true);
+              localStorage.setItem(`client_auth_${clientUrl}`, "true");
+            }
+            setClientPassword(passedPassword || "");
+          }
+          
+          setIsLoading(false);
+          setIsCheckingClient(false);
+          return;
+        }
+        
+        // If not found in local state, try API call
         const response = await fetch('/api/check_client.php', {
           method: 'POST',
           headers: {
@@ -49,80 +89,90 @@ const ClientPreview = () => {
           body: JSON.stringify({ clientUrl }),
         });
         
+        if (!response.ok) {
+          throw new Error("API request failed");
+        }
+        
         const data = await response.json();
         
         if (data.success) {
           setIsClientFound(true);
-          // Check sessionStorage for existing authentication
-          const storedAuth = sessionStorage.getItem(`client_auth_${clientUrl}`);
+          
+          // If we got client data from API but not local state, use the API data
+          if (data.client && !localClient) {
+            setClient(data.client);
+            
+            // Initialize text values for this client
+            const initialValues: TextInputValue = {};
+            data.client.textPoints.forEach((point: TextPoint) => {
+              initialValues[point.id] = "";
+            });
+            setTextValues(initialValues);
+          }
+          
+          // Check authentication
+          const storedAuth = localStorage.getItem(`client_auth_${clientUrl}`);
           if (storedAuth === "true") {
             setIsAuthenticated(true);
-          } else if (!data.client.hasPassword) {
+          } else if (data.client && !data.client.hasPassword) {
             // Auto-authenticate if no password is required
             setIsAuthenticated(true);
-            sessionStorage.setItem(`client_auth_${clientUrl}`, "true");
+            localStorage.setItem(`client_auth_${clientUrl}`, "true");
           } else if (location.state?.password) {
             // Check password from state if provided
             const passedPassword = location.state.password;
-            setClientPassword(passedPassword);
+            const clientPassword = data.client?.password || localClient?.password;
+            
+            if (passedPassword === clientPassword) {
+              setIsAuthenticated(true);
+              localStorage.setItem(`client_auth_${clientUrl}`, "true");
+            }
+            setClientPassword(passedPassword || "");
           }
         } else {
           setIsClientFound(false);
         }
       } catch (error) {
         console.error("Error verifying client:", error);
-        // Fall back to client context if API fails
+        // If API fails, fall back to local client data
         const localClient = getClientByUrl(clientUrl);
         setIsClientFound(!!localClient);
+        
+        if (localClient) {
+          setClient(localClient);
+          
+          // Initialize text values
+          const initialValues: TextInputValue = {};
+          localClient.textPoints.forEach(point => {
+            initialValues[point.id] = "";
+          });
+          setTextValues(initialValues);
+          
+          // Check authentication from localStorage
+          const storedAuth = localStorage.getItem(`client_auth_${clientUrl}`);
+          if (storedAuth === "true") {
+            setIsAuthenticated(true);
+          } else if (!localClient.password) {
+            setIsAuthenticated(true);
+            localStorage.setItem(`client_auth_${clientUrl}`, "true");
+          }
+        }
       } finally {
-        // Continue loading the client data
-        loadClientData();
+        setIsLoading(false);
+        setIsCheckingClient(false);
       }
     };
     
     verifyClient();
-  }, [clientUrl, location.state]);
-  
-  // Load client data
-  const loadClientData = () => {
-    if (clientUrl) {
-      const foundClient = getClientByUrl(clientUrl);
-      if (foundClient) {
-        setClient(foundClient);
-        
-        // Initialize text values
-        const initialValues: TextInputValue = {};
-        foundClient.textPoints.forEach(point => {
-          initialValues[point.id] = "";
-        });
-        setTextValues(initialValues);
-        
-        // If client doesn't have a password requirement, set as authenticated
-        if (!foundClient.password) {
-          setIsAuthenticated(true);
-          sessionStorage.setItem(`client_auth_${clientUrl}`, "true");
-        } else {
-          // Check if password was passed from state (from login page)
-          const passedPassword = location.state?.password;
-          if (passedPassword && passedPassword === foundClient.password) {
-            setIsAuthenticated(true);
-            sessionStorage.setItem(`client_auth_${clientUrl}`, "true");
-          } else {
-            setClientPassword(passedPassword || "");
-          }
-        }
-      }
-      setIsLoading(false);
-    }
-  };
+  }, [clientUrl, getClientByUrl, location.state]);
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (client && client.password === clientPassword) {
       setIsAuthenticated(true);
       
-      // Save authentication in sessionStorage to maintain during page refresh
-      sessionStorage.setItem(`client_auth_${clientUrl}`, "true");
+      // Save authentication in localStorage to maintain during page refresh
+      localStorage.setItem(`client_auth_${clientUrl}`, "true");
     } else {
       toast({
         variant: "destructive",
@@ -132,18 +182,18 @@ const ClientPreview = () => {
     }
   };
 
-  // Redirect to NotFound if client doesn't exist
-  if (!isClientFound && !isLoading) {
-    return <NotFound />;
-  }
-
   // Show loading indicator
-  if (isLoading) {
+  if (isCheckingClient || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="animate-pulse">Carregando...</div>
       </div>
     );
+  }
+
+  // Redirect to NotFound if client doesn't exist
+  if (!isClientFound) {
+    return <NotFound />;
   }
 
   if (client && client.password && !isAuthenticated) {

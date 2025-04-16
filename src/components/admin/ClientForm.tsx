@@ -31,6 +31,7 @@ const ClientForm = () => {
   });
 
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Load client data if editing an existing client
   useEffect(() => {
@@ -94,33 +95,62 @@ const ClientForm = () => {
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) return;
     
-    if (clientId) {
-      // Updating existing client
-      updateClient(clientId, formData);
-      toast({
-        title: "Cliente atualizado",
-        description: `As informações do cliente "${formData.name}" foram atualizadas com sucesso.`
-      });
-    } else {
-      // Creating new client
-      addClient({
-        ...formData,
-        frame: null,
-        footer: null,
-        textPoints: []
-      });
-      toast({
-        title: "Cliente criado",
-        description: `O cliente "${formData.name}" foi criado com sucesso.`
-      });
-    }
+    setIsSubmitting(true);
     
-    navigate("/admin/dashboard");
+    try {
+      // Create directories for the client on the server
+      const response = await fetch('/api/clients.php?action=prepare_directory', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ clientUrl: formData.url }),
+      });
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        console.warn("Directory preparation warning:", result.message);
+        // Continue anyway, don't block client creation
+      }
+      
+      if (clientId) {
+        // Updating existing client
+        updateClient(clientId, formData);
+        toast({
+          title: "Cliente atualizado",
+          description: `As informações do cliente "${formData.name}" foram atualizadas com sucesso.`
+        });
+      } else {
+        // Creating new client
+        addClient({
+          ...formData,
+          frame: null,
+          footer: null,
+          textPoints: []
+        });
+        toast({
+          title: "Cliente criado",
+          description: `O cliente "${formData.name}" foi criado com sucesso.`
+        });
+      }
+      
+      navigate("/admin/dashboard");
+    } catch (error) {
+      console.error("Error during client save:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao salvar",
+        description: "Ocorreu um erro ao tentar salvar as informações do cliente."
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -238,15 +268,17 @@ const ClientForm = () => {
               variant="outline"
               onClick={() => navigate("/admin/dashboard")}
               className="border-gray-300 text-gray-700"
+              disabled={isSubmitting}
             >
               Cancelar
             </Button>
             <Button 
               type="submit"
               className="bg-gradient-to-r from-brand-DEFAULT to-brand-secondary text-white"
+              disabled={isSubmitting}
             >
               <Save className="mr-2 h-5 w-5" />
-              {clientId ? "Atualizar" : "Salvar"}
+              {isSubmitting ? "Processando..." : (clientId ? "Atualizar" : "Salvar")}
             </Button>
           </CardFooter>
         </form>

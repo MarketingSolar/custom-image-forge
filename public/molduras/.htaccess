@@ -13,3 +13,18 @@ Options +Indexes
     AddType image/png png
     AddType image/gif gif
 </IfModule>
+
+# Disable PHP execution in this directory for security
+<FilesMatch "\.php$">
+    Require all denied
+</FilesMatch>
+
+# Set directory permissions
+<IfModule mod_authz_core.c>
+    Require all granted
+</IfModule>
+
+# Allow cross-origin requests for images
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+</IfModule>
