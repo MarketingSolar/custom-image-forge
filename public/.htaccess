@@ -10,6 +10,9 @@ AddHandler application/x-httpd-php .php
     # Exclude API folder from SPA rewrite rules
     RewriteRule ^api/ - [L]
     
+    # Exclude molduras folder from SPA rewrite rules
+    RewriteRule ^molduras/ - [L]
+    
     # If the request is for a real file or directory, serve it
     RewriteCond %{REQUEST_FILENAME} -f [OR]
     RewriteCond %{REQUEST_FILENAME} -d
@@ -24,3 +27,10 @@ AddHandler application/x-httpd-php .php
     Header set X-Content-Type-Options "nosniff"
     Header set X-XSS-Protection "1; mode=block"
 </IfModule>
+
+# Enable directory creation for molduras folder
+<Directory "molduras">
+    Options +FollowSymLinks
+    AllowOverride All
+    Require all granted
+</Directory>

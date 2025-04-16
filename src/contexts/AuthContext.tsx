@@ -33,6 +33,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Clear invalid stored data
         localStorage.removeItem("user");
       }
+    } else {
+      // Also check sessionStorage as a fallback
+      const sessionAuth = sessionStorage.getItem("admin_authenticated");
+      if (sessionAuth === "true") {
+        // Try to re-authenticate session
+        const username = sessionStorage.getItem("admin_username");
+        if (username) {
+          setUser({
+            id: "session-" + Date.now(),
+            username: username,
+            isAdmin: true
+          });
+          setIsAuthenticated(true);
+        }
+      }
     }
   }, []);
 
@@ -49,12 +64,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const data = await response.json();
       
       if (data.success) {
-        localStorage.setItem("user", JSON.stringify(data.user));
-        setUser(data.user);
-        setIsAuthenticated(true);
+        const userData = data.user;
         
-        // Also store in sessionStorage for more persistent session
+        // Store in both localStorage and sessionStorage for redundancy
+        localStorage.setItem("user", JSON.stringify(userData));
         sessionStorage.setItem("admin_authenticated", "true");
+        sessionStorage.setItem("admin_username", username);
+        
+        setUser(userData);
+        setIsAuthenticated(true);
         return true;
       } else {
         console.error("Login failed:", data.message);
@@ -69,6 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     localStorage.removeItem("user");
     sessionStorage.removeItem("admin_authenticated");
+    sessionStorage.removeItem("admin_username");
     setUser(null);
     setIsAuthenticated(false);
   };

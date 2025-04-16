@@ -1,0 +1,15 @@
+
+# Allow access to image files
+<FilesMatch "\.(jpg|jpeg|png|gif)$">
+    Require all granted
+</FilesMatch>
+
+# Allow directory listing for debugging
+Options +Indexes
+
+# Set proper content types
+<IfModule mod_mime.c>
+    AddType image/jpeg jpg jpeg
+    AddType image/png png
+    AddType image/gif gif
+</IfModule>

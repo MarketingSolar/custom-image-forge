@@ -29,12 +29,31 @@ const Index = () => {
       return;
     }
 
-    // Direct navigation to client URL
     try {
-      // Clean URL to remove any special characters
-      const cleanUrl = clientUrl.trim().toLowerCase();
-      navigate(`/${cleanUrl}`, { state: { password } });
+      // Check if client exists first
+      const response = await fetch('/api/check_client.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ clientUrl: clientUrl.trim().toLowerCase() }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Client exists, navigate to client URL
+        const cleanUrl = clientUrl.trim().toLowerCase();
+        navigate(`/${cleanUrl}`, { state: { password } });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Cliente não encontrado. Verifique o código informado."
+        });
+      }
     } catch (error) {
+      console.error("Error checking client:", error);
       toast({
         variant: "destructive",
         title: "Erro",

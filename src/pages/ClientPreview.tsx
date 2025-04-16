@@ -23,15 +23,68 @@ const ClientPreview = () => {
   const [client, setClient] = useState<Client | null>(null);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [textValues, setTextValues] = useState<TextInputValue>({});
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [clientPassword, setClientPassword] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isClientFound, setIsClientFound] = useState(true);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageCanvasRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Load client data
+  // Check if client exists first to avoid 404 flash
   useEffect(() => {
+    const verifyClient = async () => {
+      if (!clientUrl) {
+        setIsClientFound(false);
+        setIsLoading(false);
+        return;
+      }
+      
+      try {
+        const response = await fetch('/api/check_client.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ clientUrl }),
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          setIsClientFound(true);
+          // Check sessionStorage for existing authentication
+          const storedAuth = sessionStorage.getItem(`client_auth_${clientUrl}`);
+          if (storedAuth === "true") {
+            setIsAuthenticated(true);
+          } else if (!data.client.hasPassword) {
+            // Auto-authenticate if no password is required
+            setIsAuthenticated(true);
+            sessionStorage.setItem(`client_auth_${clientUrl}`, "true");
+          } else if (location.state?.password) {
+            // Check password from state if provided
+            const passedPassword = location.state.password;
+            setClientPassword(passedPassword);
+          }
+        } else {
+          setIsClientFound(false);
+        }
+      } catch (error) {
+        console.error("Error verifying client:", error);
+        // Fall back to client context if API fails
+        const localClient = getClientByUrl(clientUrl);
+        setIsClientFound(!!localClient);
+      } finally {
+        // Continue loading the client data
+        loadClientData();
+      }
+    };
+    
+    verifyClient();
+  }, [clientUrl, location.state]);
+  
+  // Load client data
+  const loadClientData = () => {
     if (clientUrl) {
       const foundClient = getClientByUrl(clientUrl);
       if (foundClient) {
@@ -47,18 +100,21 @@ const ClientPreview = () => {
         // If client doesn't have a password requirement, set as authenticated
         if (!foundClient.password) {
           setIsAuthenticated(true);
+          sessionStorage.setItem(`client_auth_${clientUrl}`, "true");
         } else {
           // Check if password was passed from state (from login page)
           const passedPassword = location.state?.password;
           if (passedPassword && passedPassword === foundClient.password) {
             setIsAuthenticated(true);
+            sessionStorage.setItem(`client_auth_${clientUrl}`, "true");
           } else {
             setClientPassword(passedPassword || "");
           }
         }
       }
+      setIsLoading(false);
     }
-  }, [clientUrl, getClientByUrl, location.state]);
+  };
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,15 +132,59 @@ const ClientPreview = () => {
     }
   };
 
-  // Check for session authentication on load
-  useEffect(() => {
-    if (clientUrl && client?.password) {
-      const sessionAuth = sessionStorage.getItem(`client_auth_${clientUrl}`);
-      if (sessionAuth === "true") {
-        setIsAuthenticated(true);
-      }
-    }
-  }, [clientUrl, client]);
+  // Redirect to NotFound if client doesn't exist
+  if (!isClientFound && !isLoading) {
+    return <NotFound />;
+  }
+
+  // Show loading indicator
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-pulse">Carregando...</div>
+      </div>
+    );
+  }
+
+  if (client && client.password && !isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#F9FAFB] py-10 px-4 flex items-center justify-center">
+        <Card className="w-full max-w-md animate-zoom-fade-in shadow-md border-0">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl text-gray-800">Área Restrita</CardTitle>
+            <CardDescription>
+              Esta área é protegida. Digite a senha para continuar.
+            </CardDescription>
+          </CardHeader>
+          <form onSubmit={handlePasswordSubmit}>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="password">Senha de acesso</Label>
+                <Input 
+                  id="password" 
+                  type="password" 
+                  value={clientPassword}
+                  onChange={(e) => setClientPassword(e.target.value)}
+                  placeholder="Digite a senha"
+                  required
+                />
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                Acessar
+              </Button>
+            </CardFooter>
+          </form>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show 404 if client not found
+  if (!client) {
+    return <NotFound />;
+  }
 
   const handleFileUpload = (file: File) => {
     setIsLoading(true);
@@ -227,63 +327,6 @@ const ClientPreview = () => {
   const triggerFileInput = () => {
     fileInputRef.current?.click();
   };
-
-  if (!client) {
-    const [showNotFound, setShowNotFound] = useState(false);
-    
-    useEffect(() => {
-      const timer = setTimeout(() => {
-        setShowNotFound(true);
-      }, 300);
-      
-      return () => clearTimeout(timer);
-    }, []);
-    
-    if (showNotFound) {
-      return <NotFound />;
-    }
-    
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-pulse">Carregando...</div>
-      </div>
-    );
-  }
-
-  if (client.password && !isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-[#F9FAFB] py-10 px-4 flex items-center justify-center">
-        <Card className="w-full max-w-md animate-zoom-fade-in shadow-md border-0">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl text-gray-800">Área Restrita</CardTitle>
-            <CardDescription>
-              Esta área é protegida. Digite a senha para continuar.
-            </CardDescription>
-          </CardHeader>
-          <form onSubmit={handlePasswordSubmit}>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="password">Senha de acesso</Label>
-                <Input 
-                  id="password" 
-                  type="password" 
-                  value={clientPassword}
-                  onChange={(e) => setClientPassword(e.target.value)}
-                  placeholder="Digite a senha"
-                  required
-                />
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
-                Acessar
-              </Button>
-            </CardFooter>
-          </form>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] py-6 px-4">
