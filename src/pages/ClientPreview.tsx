@@ -1,6 +1,5 @@
-
 import { useState, useRef, useEffect } from "react";
-import { useParams, Navigate } from "react-router-dom";
+import { useParams, useLocation, Navigate } from "react-router-dom";
 import { useClient, Client, TextPoint } from "@/contexts/ClientContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +16,7 @@ type TextInputValue = {
 
 const ClientPreview = () => {
   const { clientUrl } = useParams<{ clientUrl: string }>();
+  const location = useLocation();
   const { getClientByUrl } = useClient();
   const { toast } = useToast();
   
@@ -47,15 +47,26 @@ const ClientPreview = () => {
         // If client doesn't have a password requirement, set as authenticated
         if (!foundClient.password) {
           setIsAuthenticated(true);
+        } else {
+          // Check if password was passed from state (from login page)
+          const passedPassword = location.state?.password;
+          if (passedPassword && passedPassword === foundClient.password) {
+            setIsAuthenticated(true);
+          } else {
+            setClientPassword(passedPassword || "");
+          }
         }
       }
     }
-  }, [clientUrl, getClientByUrl]);
+  }, [clientUrl, getClientByUrl, location.state]);
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (client && client.password === clientPassword) {
       setIsAuthenticated(true);
+      
+      // Save authentication in sessionStorage to maintain during page refresh
+      sessionStorage.setItem(`client_auth_${clientUrl}`, "true");
     } else {
       toast({
         variant: "destructive",
@@ -64,6 +75,16 @@ const ClientPreview = () => {
       });
     }
   };
+
+  // Check for session authentication on load
+  useEffect(() => {
+    if (clientUrl && client?.password) {
+      const sessionAuth = sessionStorage.getItem(`client_auth_${clientUrl}`);
+      if (sessionAuth === "true") {
+        setIsAuthenticated(true);
+      }
+    }
+  }, [clientUrl, client]);
 
   const handleFileUpload = (file: File) => {
     setIsLoading(true);
@@ -208,7 +229,25 @@ const ClientPreview = () => {
   };
 
   if (!client) {
-    return <NotFound />;
+    const [showNotFound, setShowNotFound] = useState(false);
+    
+    useEffect(() => {
+      const timer = setTimeout(() => {
+        setShowNotFound(true);
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }, []);
+    
+    if (showNotFound) {
+      return <NotFound />;
+    }
+    
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-pulse">Carregando...</div>
+      </div>
+    );
   }
 
   if (client.password && !isAuthenticated) {

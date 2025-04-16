@@ -24,9 +24,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Check for stored user on initial load
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      setUser(parsedUser);
-      setIsAuthenticated(true);
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+        setIsAuthenticated(true);
+      } catch (error) {
+        console.error("Error parsing stored user:", error);
+        // Clear invalid stored data
+        localStorage.removeItem("user");
+      }
     }
   }, []);
 
@@ -46,6 +52,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem("user", JSON.stringify(data.user));
         setUser(data.user);
         setIsAuthenticated(true);
+        
+        // Also store in sessionStorage for more persistent session
+        sessionStorage.setItem("admin_authenticated", "true");
         return true;
       } else {
         console.error("Login failed:", data.message);
@@ -59,6 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     localStorage.removeItem("user");
+    sessionStorage.removeItem("admin_authenticated");
     setUser(null);
     setIsAuthenticated(false);
   };
