@@ -1,7 +1,7 @@
 
 <?php
 header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: POST, OPTIONS");
+header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
 header("Content-Type: application/json; charset=UTF-8");
 
@@ -14,15 +14,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once 'db_connection.php';
 
 try {
-    // Get the JSON data from the request
-    $data = json_decode(file_get_contents('php://input'), true);
-    
-    // Check if client URL is provided
-    if (!isset($data['clientUrl'])) {
-        throw new Exception("Client URL is required");
+    // Get the data - support both GET and POST
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        // Get the JSON data from the request
+        $data = json_decode(file_get_contents('php://input'), true);
+        $clientUrl = isset($data['clientUrl']) ? $data['clientUrl'] : '';
+    } else {
+        // For direct URL access
+        $clientUrl = isset($_GET['clientUrl']) ? $_GET['clientUrl'] : '';
     }
     
-    $clientUrl = $data['clientUrl'];
+    // Check if client URL is provided
+    if (empty($clientUrl)) {
+        throw new Exception("Client URL is required");
+    }
     
     // Query to check if the client exists
     $sql = "SELECT * FROM clients WHERE url = ?";
@@ -42,14 +47,51 @@ try {
     
     $client = $result->fetch_assoc();
     
-    // Return client info (without sensitive data)
+    // Check if the folder exists, if not, create it
+    $clientDir = "../molduras/{$clientUrl}";
+    if (!file_exists($clientDir)) {
+        mkdir($clientDir, 0755, true);
+    }
+    
+    // Get text points for this client
+    $textPointsSql = "SELECT 
+                      id, name, x, y, font_family as fontFamily, 
+                      font_size as fontSize, font_style as fontStyle, color
+                    FROM text_points 
+                    WHERE client_id = ?";
+    $stmtPoints = $conn->prepare($textPointsSql);
+    $clientId = $client['id'];
+    $stmtPoints->bind_param("s", $clientId);
+    $stmtPoints->execute();
+    $textPointsResult = $stmtPoints->get_result();
+    
+    $textPoints = [];
+    while ($textPointRow = $textPointsResult->fetch_assoc()) {
+        // Convert font_style from string to array
+        $textPointRow['fontStyle'] = $textPointRow['fontStyle'] ? explode(',', $textPointRow['fontStyle']) : [];
+        
+        // Convert numeric values to proper types
+        $textPointRow['x'] = (float)$textPointRow['x'];
+        $textPointRow['y'] = (float)$textPointRow['y'];
+        $textPointRow['fontSize'] = (int)$textPointRow['fontSize'];
+        
+        $textPoints[] = $textPointRow;
+    }
+    
+    // Return client info
     echo json_encode([
         'success' => true,
         'client' => [
-            'id' => $client['id'],
+            'id' => (string)$client['id'],
             'name' => $client['name'],
             'url' => $client['url'],
-            'hasPassword' => !empty($client['password'])
+            'companyName' => $client['company_name'],
+            'frame' => $client['frame'],
+            'footer' => $client['footer'],
+            'logo' => $client['logo'],
+            'password' => $client['password'],
+            'hasPassword' => !empty($client['password']),
+            'textPoints' => $textPoints
         ]
     ]);
     

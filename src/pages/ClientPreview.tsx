@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { useParams, useLocation, Navigate } from "react-router-dom";
 import { useClient, Client, TextPoint } from "@/contexts/ClientContext";
@@ -18,161 +17,107 @@ type TextInputValue = {
 const ClientPreview = () => {
   const { clientUrl } = useParams<{ clientUrl: string }>();
   const location = useLocation();
-  const { getClientByUrl } = useClient();
+  const { getClientByUrl, clients } = useClient();
   const { toast } = useToast();
   
   const [client, setClient] = useState<Client | null>(null);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [textValues, setTextValues] = useState<TextInputValue>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
   const [clientPassword, setClientPassword] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isClientFound, setIsClientFound] = useState(true);
-  const [isCheckingClient, setIsCheckingClient] = useState(true);
+  const [isClientFound, setIsClientFound] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageCanvasRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Check if client exists first to avoid 404 flash
   useEffect(() => {
-    const verifyClient = async () => {
-      if (!clientUrl) {
-        setIsClientFound(false);
-        setIsLoading(false);
-        setIsCheckingClient(false);
-        return;
-      }
-      
+    if (!clientUrl) {
+      setIsLoading(false);
+      setIsError(true);
+      return;
+    }
+    
+    const localClient = getClientByUrl(clientUrl);
+    if (localClient) {
+      handleClientData(localClient);
+      return;
+    }
+    
+    const fetchClient = async () => {
       try {
-        // First check localStorage for this client
-        const localClient = getClientByUrl(clientUrl);
-        if (localClient) {
-          setIsClientFound(true);
-          setClient(localClient);
-          
-          // Initialize text values
-          const initialValues: TextInputValue = {};
-          localClient.textPoints.forEach(point => {
-            initialValues[point.id] = "";
-          });
-          setTextValues(initialValues);
-          
-          // Check for authentication
-          const storedAuth = localStorage.getItem(`client_auth_${clientUrl}`);
-          if (storedAuth === "true") {
-            setIsAuthenticated(true);
-          } else if (!localClient.password) {
-            // Auto-authenticate if no password is required
-            setIsAuthenticated(true);
-            localStorage.setItem(`client_auth_${clientUrl}`, "true");
-          } else if (location.state?.password) {
-            // Check password from state if provided
-            const passedPassword = location.state.password;
-            if (passedPassword === localClient.password) {
-              setIsAuthenticated(true);
-              localStorage.setItem(`client_auth_${clientUrl}`, "true");
-            }
-            setClientPassword(passedPassword || "");
-          }
-          
-          setIsLoading(false);
-          setIsCheckingClient(false);
-          return;
-        }
-        
-        // If not found in local state, try API call
-        const response = await fetch('/api/check_client.php', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ clientUrl }),
-        });
+        const response = await fetch(`/api/check_client.php?clientUrl=${clientUrl}`);
         
         if (!response.ok) {
-          throw new Error("API request failed");
+          throw new Error(`HTTP error! Status: ${response.status}`);
         }
         
-        const data = await response.json();
+        const responseText = await response.text();
         
-        if (data.success) {
-          setIsClientFound(true);
-          
-          // If we got client data from API but not local state, use the API data
-          if (data.client && !localClient) {
-            setClient(data.client);
-            
-            // Initialize text values for this client
-            const initialValues: TextInputValue = {};
-            data.client.textPoints.forEach((point: TextPoint) => {
-              initialValues[point.id] = "";
-            });
-            setTextValues(initialValues);
-          }
-          
-          // Check authentication
-          const storedAuth = localStorage.getItem(`client_auth_${clientUrl}`);
-          if (storedAuth === "true") {
-            setIsAuthenticated(true);
-          } else if (data.client && !data.client.hasPassword) {
-            // Auto-authenticate if no password is required
-            setIsAuthenticated(true);
-            localStorage.setItem(`client_auth_${clientUrl}`, "true");
-          } else if (location.state?.password) {
-            // Check password from state if provided
-            const passedPassword = location.state.password;
-            const clientPassword = data.client?.password || localClient?.password;
-            
-            if (passedPassword === clientPassword) {
-              setIsAuthenticated(true);
-              localStorage.setItem(`client_auth_${clientUrl}`, "true");
-            }
-            setClientPassword(passedPassword || "");
-          }
+        if (responseText.trim().startsWith('<?php')) {
+          throw new Error("Server configuration issue: PHP code is being returned instead of executed");
+        }
+        
+        const data = JSON.parse(responseText);
+        
+        if (data.success && data.client) {
+          handleClientData(data.client);
         } else {
           setIsClientFound(false);
+          setIsLoading(false);
         }
       } catch (error) {
         console.error("Error verifying client:", error);
-        // If API fails, fall back to local client data
-        const localClient = getClientByUrl(clientUrl);
-        setIsClientFound(!!localClient);
-        
-        if (localClient) {
-          setClient(localClient);
-          
-          // Initialize text values
-          const initialValues: TextInputValue = {};
-          localClient.textPoints.forEach(point => {
-            initialValues[point.id] = "";
-          });
-          setTextValues(initialValues);
-          
-          // Check authentication from localStorage
-          const storedAuth = localStorage.getItem(`client_auth_${clientUrl}`);
-          if (storedAuth === "true") {
-            setIsAuthenticated(true);
-          } else if (!localClient.password) {
-            setIsAuthenticated(true);
-            localStorage.setItem(`client_auth_${clientUrl}`, "true");
-          }
+        const fallbackClient = getClientByUrl(clientUrl);
+        if (fallbackClient) {
+          handleClientData(fallbackClient);
+        } else {
+          setIsClientFound(false);
+          setIsLoading(false);
+          setIsError(true);
         }
-      } finally {
-        setIsLoading(false);
-        setIsCheckingClient(false);
       }
     };
     
-    verifyClient();
-  }, [clientUrl, getClientByUrl, location.state]);
+    fetchClient();
+  }, [clientUrl, getClientByUrl, clients]);
+  
+  const handleClientData = (clientData: Client) => {
+    setClient(clientData);
+    setIsClientFound(true);
+    
+    const initialValues: TextInputValue = {};
+    clientData.textPoints?.forEach(point => {
+      initialValues[point.id] = "";
+    });
+    setTextValues(initialValues);
+    
+    const authKey = `client_auth_${clientUrl}`;
+    const storedAuth = localStorage.getItem(authKey);
+    
+    if (storedAuth === "true") {
+      setIsAuthenticated(true);
+    } else if (!clientData.password) {
+      setIsAuthenticated(true);
+      localStorage.setItem(authKey, "true");
+    } else if (location.state?.password) {
+      if (location.state.password === clientData.password) {
+        setIsAuthenticated(true);
+        localStorage.setItem(authKey, "true");
+      }
+      setClientPassword(location.state.password || "");
+    }
+    
+    setIsLoading(false);
+  };
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (client && client.password === clientPassword) {
       setIsAuthenticated(true);
-      
-      // Save authentication in localStorage to maintain during page refresh
       localStorage.setItem(`client_auth_${clientUrl}`, "true");
+      sessionStorage.setItem(`client_session_${clientUrl}`, "active");
     } else {
       toast({
         variant: "destructive",
@@ -182,21 +127,34 @@ const ClientPreview = () => {
     }
   };
 
-  // Show loading indicator
-  if (isCheckingClient || isLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-pulse">Carregando...</div>
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <p className="mt-4 text-gray-600">Carregando...</p>
+        </div>
       </div>
     );
   }
 
-  // Redirect to NotFound if client doesn't exist
-  if (!isClientFound) {
+  if (isError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center max-w-md p-6 bg-white rounded-lg shadow-md">
+          <h2 className="text-xl font-semibold text-red-600 mb-2">Erro ao carregar</h2>
+          <p className="text-gray-600 mb-4">Não foi possível carregar os dados do cliente. Verifique se o URL está correto.</p>
+          <a href="/" className="text-blue-500 hover:text-blue-700 underline">Voltar para a página inicial</a>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isClientFound || !client) {
     return <NotFound />;
   }
 
-  if (client && client.password && !isAuthenticated) {
+  if (client.password && !isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#F9FAFB] py-10 px-4 flex items-center justify-center">
         <Card className="w-full max-w-md animate-zoom-fade-in shadow-md border-0">
@@ -231,11 +189,6 @@ const ClientPreview = () => {
     );
   }
 
-  // Show 404 if client not found
-  if (!client) {
-    return <NotFound />;
-  }
-
   const handleFileUpload = (file: File) => {
     setIsLoading(true);
     
@@ -259,11 +212,9 @@ const ClientPreview = () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       
-      // Create video element to show camera stream
       const video = document.createElement('video');
       video.srcObject = stream;
       
-      // Create a modal/overlay to show camera preview
       const overlay = document.createElement('div');
       overlay.className = 'fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50';
       
@@ -298,28 +249,22 @@ const ClientPreview = () => {
       overlay.appendChild(cameraContainer);
       document.body.appendChild(overlay);
       
-      // Start video playback
       video.play();
       
-      // Handle capture
       captureButton.onclick = () => {
-        // Create canvas to capture frame
         const canvas = document.createElement('canvas');
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(video, 0, 0);
         
-        // Get image data
         const imageData = canvas.toDataURL('image/png');
         setUploadedImage(imageData);
         
-        // Clean up
         stream.getTracks().forEach(track => track.stop());
         document.body.removeChild(overlay);
       };
       
-      // Handle cancel
       cancelButton.onclick = () => {
         stream.getTracks().forEach(track => track.stop());
         document.body.removeChild(overlay);
@@ -409,7 +354,7 @@ const ClientPreview = () => {
                   <h3 className="client-section-title">Imagem de Fundo</h3>
                   
                   <div className="flex flex-wrap gap-3 mb-4">
-                    <div className="tool-button" onClick={triggerFileInput}>
+                    <div className="tool-button" onClick={() => fileInputRef.current?.click()}>
                       <Image className="h-5 w-5 text-gray-700" />
                     </div>
                     
@@ -429,7 +374,6 @@ const ClientPreview = () => {
                   </div>
                 </div>
 
-                {/* Informações do projeto */}
                 <div>
                   <h3 className="client-section-title">Informações do Projeto</h3>
                   
@@ -457,7 +401,6 @@ const ClientPreview = () => {
                   )}
                 </div>
                 
-                {/* Botões de ação */}
                 <div className="flex flex-col space-y-2">
                   <Button
                     onClick={handleDownload}

@@ -2,6 +2,13 @@
 # Enable PHP execution
 AddHandler application/x-httpd-php .php
 
+# Set PHP options
+<IfModule mod_php7.c>
+    php_flag display_errors off
+    php_value max_execution_time 300
+    php_value memory_limit 128M
+</IfModule>
+
 # Rewrite rules for SPA
 <IfModule mod_rewrite.c>
     RewriteEngine On
@@ -30,7 +37,7 @@ AddHandler application/x-httpd-php .php
 
 # Create directory structure for molduras
 <Directory "molduras">
-    Options +FollowSymLinks
+    Options +FollowSymLinks +Indexes
     AllowOverride All
     Order allow,deny
     Allow from all

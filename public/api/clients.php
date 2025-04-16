@@ -1,9 +1,8 @@
-
 <?php
 // This file contains the necessary code to handle client-related operations
 
 header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
 header("Content-Type: application/json; charset=UTF-8");
 
@@ -91,6 +90,10 @@ function listClients($conn) {
         }
         
         $row['textPoints'] = $textPoints;
+        
+        // Check if molduras directory exists for this client, create if not
+        createClientDirectory($row['url']);
+        
         $clients[] = $row;
     }
     
@@ -297,7 +300,53 @@ function deleteClient($conn) {
     }
 }
 
-// Function to prepare directory for a client
+// Helper function to create directory for a client
+function createClientDirectory($clientUrl) {
+    $baseDir = "../molduras";
+    
+    // Create base directory if it doesn't exist
+    if (!file_exists($baseDir)) {
+        if (!mkdir($baseDir, 0755, true)) {
+            error_log("Failed to create base directory: $baseDir");
+            return false;
+        }
+    }
+    
+    // Create client directory
+    $clientDir = "$baseDir/$clientUrl";
+    if (!file_exists($clientDir)) {
+        if (!mkdir($clientDir, 0755, true)) {
+            error_log("Failed to create client directory: $clientDir");
+            return false;
+        }
+        
+        // Create an .htaccess file in the client directory to ensure proper access
+        $htaccess = "$clientDir/.htaccess";
+        $htaccessContent = "
+# Allow access to image files
+<FilesMatch \"\.(jpg|jpeg|png|gif)$\">
+    Require all granted
+</FilesMatch>
+
+# Set proper content types
+<IfModule mod_mime.c>
+    AddType image/jpeg jpg jpeg
+    AddType image/png png
+    AddType image/gif gif
+</IfModule>
+
+# Allow cross-origin requests for images
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin \"*\"
+</IfModule>
+";
+        file_put_contents($htaccess, $htaccessContent);
+    }
+    
+    return true;
+}
+
+// Helper function to prepare directory for a client
 function prepareDirectory() {
     $data = json_decode(file_get_contents('php://input'), true);
     
@@ -308,39 +357,20 @@ function prepareDirectory() {
     $clientUrl = $data['clientUrl'];
     
     try {
-        createClientDirectory($clientUrl);
-        echo json_encode([
-            'success' => true,
-            'message' => 'Client directory prepared successfully'
-        ]);
+        if (createClientDirectory($clientUrl)) {
+            echo json_encode([
+                'success' => true,
+                'message' => 'Client directory prepared successfully'
+            ]);
+        } else {
+            throw new Exception("Failed to create client directory");
+        }
     } catch (Exception $e) {
         echo json_encode([
             'success' => false,
             'message' => $e->getMessage()
         ]);
     }
-}
-
-// Helper function to create directory for a client
-function createClientDirectory($clientUrl) {
-    $baseDir = "../molduras";
-    
-    // Create base directory if it doesn't exist
-    if (!file_exists($baseDir)) {
-        if (!mkdir($baseDir, 0755, true)) {
-            throw new Exception("Failed to create base directory");
-        }
-    }
-    
-    // Create client directory
-    $clientDir = "$baseDir/$clientUrl";
-    if (!file_exists($clientDir)) {
-        if (!mkdir($clientDir, 0755, true)) {
-            throw new Exception("Failed to create client directory");
-        }
-    }
-    
-    return true;
 }
 
 // Helper function to rename client directory
